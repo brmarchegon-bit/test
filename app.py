@@ -1,643 +1,408 @@
-from flask import Flask, render_template_string, jsonify, request
+import streamlit as st
 import pandas as pd
 import math
-import os
 
-app = Flask(__name__)
+st.set_page_config(
+    page_title="لوحة المؤسسات التعليمية",
+    page_icon="🏫",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# ── Load data ──────────────────────────────────────────────────────────────────
-DATA_FILE = os.path.join(os.path.dirname(__file__), "data.xlsx")
-df = pd.read_excel(DATA_FILE, dtype=str).fillna("")
+# ── CSS ────────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
+* { font-family: 'Cairo', sans-serif !important; }
+html, body, [class*="css"] { direction: rtl; }
 
-# Normalize column names (strip whitespace)
-df.columns = [c.strip() for c in df.columns]
+.main-header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+    color: white; padding: 20px 28px; border-radius: 14px;
+    margin-bottom: 20px; display: flex; align-items: center; gap: 14px;
+}
+.main-header h1 { font-size: 22px; font-weight: 700; margin: 0; }
+.main-header p  { font-size: 13px; opacity: .75; margin: 4px 0 0; }
+
+.kpi-card {
+    background: white; border-radius: 12px; padding: 16px 18px;
+    border: 1px solid #e2e8f0; text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,.07);
+}
+.kpi-val  { font-size: 28px; font-weight: 700; color: #1e40af; }
+.kpi-val.red    { color: #dc2626; }
+.kpi-val.green  { color: #16a34a; }
+.kpi-val.orange { color: #d97706; }
+.kpi-lbl  { font-size: 12px; color: #64748b; margin-top: 4px; font-weight: 600; }
+
+.alert-red {
+    background: #fee2e2; border: 1.5px solid #fca5a5; border-radius: 10px;
+    padding: 14px 18px; color: #991b1b; font-weight: 600; font-size: 14px;
+    display: flex; align-items: center; gap: 10px; margin: 12px 0;
+}
+.alert-green {
+    background: #dcfce7; border: 1.5px solid #86efac; border-radius: 10px;
+    padding: 14px 18px; color: #166534; font-weight: 600; font-size: 14px;
+    display: flex; align-items: center; gap: 10px; margin: 12px 0;
+}
+.inst-card {
+    background: white; border-radius: 14px; padding: 20px;
+    border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    margin-bottom: 14px;
+}
+.inst-title { font-size: 20px; font-weight: 700; color: #0f172a; }
+.inst-ar    { font-size: 14px; color: #64748b; margin-top: 3px; }
+.chip {
+    display: inline-block; padding: 3px 12px; border-radius: 20px;
+    background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 600;
+    margin: 3px 2px;
+}
+.chip.blue   { background: #dbeafe; color: #1d4ed8; }
+.chip.green  { background: #d1fae5; color: #065f46; }
+.chip.purple { background: #ede9fe; color: #5b21b6; }
+
+.nearby-row {
+    background: #f8fafc; border-radius: 10px; padding: 10px 14px;
+    margin-bottom: 8px; display: flex; justify-content: space-between;
+    align-items: center; border: 1px solid #e2e8f0;
+}
+.nearby-name { font-size: 13px; font-weight: 600; color: #0f172a; }
+.nearby-code { font-size: 12px; color: #94a3b8; }
+.dist-badge {
+    background: #dbeafe; color: #1d4ed8; padding: 4px 12px;
+    border-radius: 20px; font-size: 13px; font-weight: 700;
+}
+.section-title {
+    font-size: 14px; font-weight: 700; color: #334155;
+    border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin: 18px 0 12px;
+}
+[data-testid="stSidebar"] { direction: rtl; }
+.stTabs [data-baseweb="tab"] { font-family: 'Cairo', sans-serif !important; font-size: 14px; }
+</style>
+""", unsafe_allow_html=True)
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
-COL_CODE   = "code_gresa"
-COL_CAT    = "Categorie"
-COL_SCAT   = "Sous_Categorie"
-COL_LABFR  = "Libellé Français*"
-COL_LABAR  = "Libellé Arabe*"
-COL_REGION = "Région*"
-COL_PROV   = "Province*"
-COL_COM    = "Commune*"
-COL_STATUT = "Statut*"
-COL_LAT    = "Latitude"
-COL_LON    = "Longitude"
-COL_ELEVES = "Nombre d'élève *"
-COL_CLASSE = "Nombre de classe*"
-COL_SALLE  = "Nombre de salle *"
-COL_ORDI   = "Matériel informatique : Nombre d'ordinateurs*"
-COL_BUREAU = "Nombre de bureaux*"
-COL_SPORT  = "Nombre de Terrain de sport "
-COL_LATRIN = "Nombre de latrines"
-COL_ANNEX  = "nombre d'annexe "
-COL_INTERN = "nombre d'internes"
-COL_TXOCC  = "Taux d'occupation de l'internat"
-COL_BCOMPL = "nombre de boursiers (bourse compléte)"
-COL_BDEMI  = "nombre de boursiers (demi bourse )"
-COL_LITS   = "nombre de lits"
-COL_SOUTIEN_BEN  = "Nombre de bénéficiaire du soutien scolaire"
-COL_SOUTIEN_H    = "Nombre d'heure de soutien scolaire"
-COL_FORM_BEN     = "nombre de bénéficiaires de formation continue"
-COL_FORM_JOURS   = "Nombre de jours de formation continue"
-COL_PIONEER      = "Pionnier*"
-COL_DATE_LABEL   = "date de labélisation"
-COL_DATE_CONSTR  = "Date Construction"
-COL_DATE_MAJ     = "Date Dernière Mise à Niveau"
-COL_PROPRIO      = "Propriétaire"
-COL_GESTION      = "Gestionnaire"
-COL_COPIE        = "nombre de copies corrigées"
-COL_CENTRE_CORR  = "nombre de centre de correction"
-COL_SUPERV       = "nombre de superviseurs"
-COL_ANIMAT       = "nombre animateurs activités parascolaires"
-COL_COIN_LECT    = "nb de salle (coin de lecture)"
-COL_RITUEL       = "nombre de rituel"
-COL_REST_JOURS   = "Nombre de jours de restauration"
+COL = {
+    "code":      "code_gresa",
+    "cat":       "Categorie",
+    "scat":      "Sous_Categorie",
+    "nom_fr":    "Libellé Français*",
+    "nom_ar":    "Libellé Arabe*",
+    "region":    "Région*",
+    "province":  "Province*",
+    "commune":   "Commune*",
+    "statut":    "Statut*",
+    "lat":       "Latitude",
+    "lon":       "Longitude",
+    "proprio":   "Propriétaire",
+    "gestion":   "Gestionnaire",
+    "dt_constr": "Date Construction",
+    "dt_maj":    "Date Dernière Mise à Niveau",
+    "pioneer":   "Pionnier*",
+    "dt_label":  "date de labélisation",
+    "eleves":    "Nombre d'élève *",
+    "classes":   "Nombre de classe*",
+    "salles":    "Nombre de salle *",
+    "annexes":   "nombre d'annexe ",
+    "ordi":      "Matériel informatique : Nombre d'ordinateurs*",
+    "bureaux":   "Nombre de bureaux*",
+    "sport":     "Nombre de Terrain de sport ",
+    "latrines":  "Nombre de latrines",
+    "internes":  "nombre d'internes",
+    "tx_intern": "Taux d'occupation de l'internat",
+    "b_complet": "nombre de boursiers (bourse compléte)",
+    "b_demi":    "nombre de boursiers (demi bourse )",
+    "lits":      "nombre de lits",
+    "sout_ben":  "Nombre de bénéficiaire du soutien scolaire",
+    "sout_h":    "Nombre d'heure de soutien scolaire",
+    "form_ben":  "nombre de bénéficiaires de formation continue",
+    "form_j":    "Nombre de jours de formation continue",
+    "copies":    "nombre de copies corrigées",
+    "centres":   "nombre de centre de correction",
+    "superv":    "nombre de superviseurs",
+    "animat":    "nombre animateurs activités parascolaires",
+    "coin_lect": "nb de salle (coin de lecture)",
+    "rituels":   "nombre de rituel",
+    "rest_j":    "Nombre de jours de restauration",
+}
 
+def si(val):
+    try: return int(float(str(val).replace(",",".")))
+    except: return 0
 
-def safe_float(val):
-    try:
-        return float(str(val).replace(",", ".").strip())
-    except Exception:
-        return 0.0
+def sf(val):
+    try: return float(str(val).replace(",","."))
+    except: return 0.0
 
-
-def safe_int(val):
-    try:
-        return int(float(str(val).replace(",", ".").strip()))
-    except Exception:
-        return 0
-
+def get_col(row, key):
+    col = COL.get(key, key)
+    return row.get(col, "")
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlam = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
-    return round(R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 2)
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
+    return round(R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a)), 2)
 
-
-def get_category(row):
-    cat  = str(row.get(COL_CAT,  "")).lower()
-    scat = str(row.get(COL_SCAT, "")).lower()
-    lib  = str(row.get(COL_LABFR,"")).lower()
-    txt  = cat + " " + scat + " " + lib
-    if any(k in txt for k in ["thana", "ثانو", "lycée", "lycee", "qualifiante"]):
-        return "thanawi"
-    if any(k in txt for k in ["ibtid", "ابتدا", "primaire"]):
-        return "ibtidai"
-    if any(k in txt for k in ["idadi", "اعدا", "collège", "college", "collegiale"]):
-        return "idadi"
+def categorize(row):
+    txt = " ".join([
+        str(row.get(COL["cat"],  "")),
+        str(row.get(COL["scat"], "")),
+        str(row.get(COL["nom_fr"],""))
+    ]).lower()
+    if any(k in txt for k in ["thana","ثانو","lycée","lycee","qualifiante"]): return "thanawi"
+    if any(k in txt for k in ["ibtid","ابتدا","primaire"]): return "ibtidai"
+    if any(k in txt for k in ["idadi","اعدا","collège","college","collegiale"]): return "idadi"
     return "other"
 
+CAT_LABEL = {"ibtidai":"ابتدائية","idadi":"إعدادية","thanawi":"ثانوية","other":"مؤسسة"}
+CAT_COLOR = {"ibtidai":"blue","idadi":"green","thanawi":"purple","other":""}
 
-def row_to_dict(row):
-    lat = safe_float(row.get(COL_LAT, 0))
-    lon = safe_float(row.get(COL_LON, 0))
-    n_classes = safe_int(row.get(COL_CLASSE, 0))
-    n_salles  = safe_int(row.get(COL_SALLE,  0))
-    taux = round(n_classes / n_salles, 3) if n_salles > 0 else None
-    surcharge = (taux is not None and taux > 1.9)
+# ── Load data ──────────────────────────────────────────────────────────────────
+@st.cache_data
+def load_data():
+    df = pd.read_excel("data.xlsx", dtype=str).fillna("")
+    df.columns = [c.strip() for c in df.columns]
+    df["_cat"] = df.apply(categorize, axis=1)
+    df["_lat"] = df[COL["lat"]].apply(sf)
+    df["_lon"] = df[COL["lon"]].apply(sf)
+    return df
 
-    return {
-        "code":       str(row.get(COL_CODE,   "")),
-        "nom_fr":     str(row.get(COL_LABFR,  "")),
-        "nom_ar":     str(row.get(COL_LABAR,  "")),
-        "categorie":  get_category(row),
-        "cat_raw":    str(row.get(COL_CAT,    "")),
-        "scat_raw":   str(row.get(COL_SCAT,   "")),
-        "region":     str(row.get(COL_REGION, "")),
-        "province":   str(row.get(COL_PROV,   "")),
-        "commune":    str(row.get(COL_COM,    "")),
-        "statut":     str(row.get(COL_STATUT, "")),
-        "lat":        lat,
-        "lon":        lon,
-        "proprietaire": str(row.get(COL_PROPRIO,   "")),
-        "gestionnaire": str(row.get(COL_GESTION,   "")),
-        "date_construction": str(row.get(COL_DATE_CONSTR, "")),
-        "date_maj":          str(row.get(COL_DATE_MAJ,    "")),
-        "pioneer":           str(row.get(COL_PIONEER,     "")),
-        "date_label":        str(row.get(COL_DATE_LABEL,  "")),
-        # stats
-        "nb_eleves":  safe_int(row.get(COL_ELEVES, 0)),
-        "nb_classes": n_classes,
-        "nb_salles":  n_salles,
-        "nb_annexes": safe_int(row.get(COL_ANNEX,  0)),
-        "nb_ordi":    safe_int(row.get(COL_ORDI,   0)),
-        "nb_bureaux": safe_int(row.get(COL_BUREAU, 0)),
-        "nb_sport":   safe_int(row.get(COL_SPORT,  0)),
-        "nb_latrines":safe_int(row.get(COL_LATRIN, 0)),
-        "nb_internes":safe_int(row.get(COL_INTERN, 0)),
-        "tx_internat":safe_float(row.get(COL_TXOCC,  0)),
-        "nb_bourse_complet": safe_int(row.get(COL_BCOMPL, 0)),
-        "nb_demi_bourse":    safe_int(row.get(COL_BDEMI,  0)),
-        "nb_lits":           safe_int(row.get(COL_LITS,   0)),
-        "nb_soutien_ben":    safe_int(row.get(COL_SOUTIEN_BEN,  0)),
-        "nb_soutien_heures": safe_int(row.get(COL_SOUTIEN_H,    0)),
-        "nb_form_ben":       safe_int(row.get(COL_FORM_BEN,     0)),
-        "nb_form_jours":     safe_int(row.get(COL_FORM_JOURS,   0)),
-        "nb_copies":         safe_int(row.get(COL_COPIE,        0)),
-        "nb_centres_corr":   safe_int(row.get(COL_CENTRE_CORR,  0)),
-        "nb_superviseurs":   safe_int(row.get(COL_SUPERV,       0)),
-        "nb_animateurs":     safe_int(row.get(COL_ANIMAT,       0)),
-        "nb_coin_lecture":   safe_int(row.get(COL_COIN_LECT,    0)),
-        "nb_rituels":        safe_int(row.get(COL_RITUEL,       0)),
-        "nb_jours_rest":     safe_int(row.get(COL_REST_JOURS,   0)),
-        # calculated
-        "taux_salles": taux,
-        "surcharge":   surcharge,
-    }
+df = load_data()
 
+# ── Header ─────────────────────────────────────────────────────────────────────
+total     = len(df)
+n_ibtidai = (df["_cat"]=="ibtidai").sum()
+n_idadi   = (df["_cat"]=="idadi").sum()
+n_thanawi = (df["_cat"]=="thanawi").sum()
 
-# Pre-process all rows once
-RECORDS = [row_to_dict(row) for _, row in df.iterrows()]
+def is_surcharge(row):
+    nc = si(row.get(COL["classes"],0))
+    ns = si(row.get(COL["salles"],0))
+    return ns > 0 and (nc/ns) > 1.9
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+n_surcharge = sum(is_surcharge(r) for _, r in df.iterrows())
 
-@app.route("/")
-def index():
-    return render_template_string(HTML_TEMPLATE)
-
-
-@app.route("/api/search")
-def search():
-    q = request.args.get("q", "").strip().lower()
-    if not q:
-        return jsonify([])
-    results = []
-    for r in RECORDS:
-        if (q in r["nom_fr"].lower() or
-            q in r["nom_ar"].lower() or
-            q in r["code"].lower()):
-            results.append({
-                "code":      r["code"],
-                "nom_fr":    r["nom_fr"],
-                "nom_ar":    r["nom_ar"],
-                "commune":   r["commune"],
-                "province":  r["province"],
-                "categorie": r["categorie"],
-                "surcharge": r["surcharge"],
-                "taux_salles": r["taux_salles"],
-            })
-        if len(results) >= 30:
-            break
-    return jsonify(results)
-
-
-@app.route("/api/etablissement/<code>")
-def get_etablissement(code):
-    rec = next((r for r in RECORDS if r["code"] == code), None)
-    if not rec:
-        return jsonify({"error": "not found"}), 404
-
-    nearby = []
-    commune = rec["commune"]
-    cat = rec["categorie"]
-    lat, lon = rec["lat"], rec["lon"]
-
-    # Determine which category to look for nearby
-    target_cat = None
-    if cat == "idadi":
-        target_cat = "ibtidai"
-    elif cat == "thanawi":
-        target_cat = "idadi"
-
-    if target_cat and commune and lat and lon:
-        candidates = [
-            r for r in RECORDS
-            if r["code"] != code
-            and r["commune"] == commune
-            and r["categorie"] == target_cat
-            and r["lat"] and r["lon"]
-        ]
-        for c in candidates:
-            dist = haversine(lat, lon, c["lat"], c["lon"])
-            nearby.append({
-                "code":     c["code"],
-                "nom_fr":   c["nom_fr"],
-                "nom_ar":   c["nom_ar"],
-                "commune":  c["commune"],
-                "categorie":c["categorie"],
-                "lat":      c["lat"],
-                "lon":      c["lon"],
-                "distance": dist,
-            })
-        nearby.sort(key=lambda x: x["distance"])
-        nearby = nearby[:8]
-
-    rec["nearby"] = nearby
-    return jsonify(rec)
-
-
-@app.route("/api/stats/global")
-def global_stats():
-    total = len(RECORDS)
-    ibtidai  = sum(1 for r in RECORDS if r["categorie"] == "ibtidai")
-    idadi    = sum(1 for r in RECORDS if r["categorie"] == "idadi")
-    thanawi  = sum(1 for r in RECORDS if r["categorie"] == "thanawi")
-    other    = total - ibtidai - idadi - thanawi
-    surcharge= sum(1 for r in RECORDS if r["surcharge"])
-    total_eleves = sum(r["nb_eleves"] for r in RECORDS)
-    return jsonify({
-        "total": total,
-        "ibtidai": ibtidai,
-        "idadi": idadi,
-        "thanawi": thanawi,
-        "other": other,
-        "surcharge": surcharge,
-        "total_eleves": total_eleves,
-    })
-
-
-# ── HTML Template ──────────────────────────────────────────────────────────────
-HTML_TEMPLATE = r"""<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>لوحة إحصائيات المؤسسات التعليمية</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --primary:#1e40af;--primary-l:#dbeafe;--primary-d:#1e3a8a;
-  --danger:#dc2626;--danger-l:#fee2e2;
-  --success:#16a34a;--success-l:#dcfce7;
-  --warning:#d97706;--warning-l:#fef3c7;
-  --gray-50:#f8fafc;--gray-100:#f1f5f9;--gray-200:#e2e8f0;
-  --gray-500:#64748b;--gray-700:#334155;--gray-900:#0f172a;
-  --radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
-}
-body{font-family:'Cairo',sans-serif;background:#f0f4f8;color:var(--gray-900);min-height:100vh}
-
-/* Layout */
-.app{display:grid;grid-template-columns:340px 1fr;grid-template-rows:64px 1fr;min-height:100vh}
-.topbar{grid-column:1/-1;background:var(--primary-d);color:#fff;display:flex;align-items:center;gap:12px;padding:0 20px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-.topbar-logo{width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px}
-.topbar-title{font-size:17px;font-weight:700;letter-spacing:-.3px}
-.topbar-sub{font-size:12px;opacity:.7;margin-top:1px}
-.topbar-stats{margin-right:auto;display:flex;gap:20px}
-.ts-item{text-align:center}
-.ts-val{font-size:18px;font-weight:700}
-.ts-lbl{font-size:11px;opacity:.7}
-
-/* Sidebar */
-.sidebar{background:#fff;border-left:1px solid var(--gray-200);overflow-y:auto;display:flex;flex-direction:column}
-.search-box{padding:16px;border-bottom:1px solid var(--gray-200)}
-.search-wrap{position:relative}
-.search-wrap input{width:100%;padding:10px 14px 10px 40px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-family:inherit;font-size:14px;outline:none;transition:border-color .2s;background:var(--gray-50)}
-.search-wrap input:focus{border-color:var(--primary);background:#fff}
-.search-wrap .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-500);font-size:16px;pointer-events:none}
-.results-header{padding:10px 16px 6px;font-size:12px;color:var(--gray-500);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
-.results-list{flex:1;overflow-y:auto}
-.result-item{padding:12px 16px;border-bottom:1px solid var(--gray-100);cursor:pointer;transition:background .15s;display:flex;align-items:flex-start;gap:10px}
-.result-item:hover{background:var(--primary-l)}
-.result-item.active{background:var(--primary-l);border-right:3px solid var(--primary)}
-.ri-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
-.ri-dot.ibtidai{background:#0ea5e9}
-.ri-dot.idadi{background:#10b981}
-.ri-dot.thanawi{background:#8b5cf6}
-.ri-dot.other{background:var(--gray-500)}
-.ri-body{flex:1;min-width:0}
-.ri-name{font-size:13px;font-weight:600;color:var(--gray-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ri-sub{font-size:12px;color:var(--gray-500);margin-top:2px}
-.ri-badge{font-size:11px;padding:2px 7px;border-radius:20px;flex-shrink:0;font-weight:600;margin-top:1px}
-.badge-ibtidai{background:#e0f2fe;color:#0369a1}
-.badge-idadi{background:#d1fae5;color:#065f46}
-.badge-thanawi{background:#ede9fe;color:#5b21b6}
-.badge-other{background:var(--gray-100);color:var(--gray-700)}
-.surcharge-dot{width:6px;height:6px;border-radius:50%;background:var(--danger);display:inline-block;margin-right:4px}
-
-/* Main panel */
-.main{overflow-y:auto;padding:20px}
-.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--gray-500)}
-.empty-icon{font-size:48px;opacity:.3}
-.empty-text{font-size:16px;font-weight:600}
-.empty-sub{font-size:13px;opacity:.7;text-align:center;max-width:300px}
-
-/* Cards */
-.inst-header{background:#fff;border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow);border-right:4px solid var(--primary)}
-.inst-header.danger-border{border-right-color:var(--danger)}
-.inst-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-.inst-name-fr{font-size:18px;font-weight:700;color:var(--gray-900);line-height:1.3}
-.inst-name-ar{font-size:14px;color:var(--gray-500);margin-top:3px}
-.inst-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.chip{font-size:12px;padding:4px 10px;border-radius:20px;background:var(--gray-100);color:var(--gray-700);display:flex;align-items:center;gap:4px}
-.chip i{font-size:13px}
-
-.alert{padding:12px 16px;border-radius:var(--radius);margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
-.alert-danger{background:var(--danger-l);color:var(--danger);border:1px solid #fca5a5}
-.alert-success{background:var(--success-l);color:var(--success);border:1px solid #86efac}
-.alert i{font-size:20px}
-
-/* Tabs */
-.tabs{display:flex;gap:4px;background:var(--gray-100);padding:4px;border-radius:var(--radius);margin-bottom:16px}
-.tab{flex:1;padding:8px;border:none;background:transparent;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;color:var(--gray-500);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px}
-.tab.active{background:#fff;color:var(--primary);box-shadow:var(--shadow)}
-.tab-panel{display:none}
-.tab-panel.active{display:block}
-
-/* Stats grid */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px}
-.stat-card{background:#fff;border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);text-align:center}
-.stat-icon{font-size:22px;margin-bottom:6px;color:var(--primary)}
-.stat-val{font-size:24px;font-weight:700;color:var(--gray-900)}
-.stat-val.red{color:var(--danger)}
-.stat-val.green{color:var(--success)}
-.stat-lbl{font-size:11px;color:var(--gray-500);margin-top:3px;font-weight:600}
-
-/* Info table */
-.info-card{background:#fff;border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
-.info-card-title{font-size:13px;font-weight:700;color:var(--gray-700);margin-bottom:12px;display:flex;align-items:center;gap:6px;padding-bottom:8px;border-bottom:1px solid var(--gray-100)}
-.info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-50);font-size:13px}
-.info-row:last-child{border-bottom:none}
-.info-key{color:var(--gray-500)}
-.info-val{font-weight:600;color:var(--gray-900)}
-
-/* Map */
-.map-wrap{border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:14px;height:320px}
-.map-wrap iframe{width:100%;height:100%;border:none}
-.map-no-coords{height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--gray-50);border-radius:var(--radius);color:var(--gray-500);gap:8px;border:1px dashed var(--gray-200)}
-.map-actions{display:flex;gap:8px;margin-bottom:14px}
-.map-btn{padding:8px 16px;border-radius:8px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .2s}
-.map-btn:hover{opacity:.85}
-.map-btn.primary{background:var(--primary);color:#fff}
-.map-btn.secondary{background:var(--gray-100);color:var(--gray-700)}
-
-/* Nearby */
-.nearby-item{background:#fff;border-radius:var(--radius);padding:12px 16px;margin-bottom:8px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:12px;transition:transform .15s}
-.nearby-item:hover{transform:translateX(-2px)}
-.nearby-name{font-size:13px;font-weight:600;color:var(--gray-900)}
-.nearby-code{font-size:12px;color:var(--gray-500);margin-top:2px}
-.nearby-dist{font-size:13px;font-weight:700;color:var(--primary);background:var(--primary-l);padding:4px 12px;border-radius:20px;flex-shrink:0;white-space:nowrap}
-.section-head{font-size:14px;font-weight:700;color:var(--gray-700);margin-bottom:10px;display:flex;align-items:center;gap:6px}
-
-/* Loading */
-.loading{display:flex;align-items:center;gap:8px;color:var(--gray-500);padding:20px;font-size:14px}
-.spinner{width:18px;height:18px;border:2px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* No results */
-.no-results{padding:30px;text-align:center;color:var(--gray-500);font-size:14px}
-</style>
-</head>
-<body>
-<div class="app">
-
-  <!-- Top bar -->
-  <header class="topbar">
-    <div class="topbar-logo"><i class="ti ti-school"></i></div>
-    <div>
-      <div class="topbar-title">لوحة إحصائيات المؤسسات التعليمية</div>
-      <div class="topbar-sub">بحث · إحصائيات · موقع جغرافي · مؤسسات قريبة</div>
-    </div>
-    <div class="topbar-stats" id="global-stats">
-      <div class="ts-item"><div class="ts-val" id="gs-total">—</div><div class="ts-lbl">مؤسسة</div></div>
-      <div class="ts-item"><div class="ts-val" id="gs-eleves">—</div><div class="ts-lbl">تلميذ</div></div>
-      <div class="ts-item" style="color:#fca5a5"><div class="ts-val" id="gs-surcharge">—</div><div class="ts-lbl">مكتظة</div></div>
-    </div>
-  </header>
-
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="search-box">
-      <div class="search-wrap">
-        <i class="ti ti-search si"></i>
-        <input type="text" id="search-input" placeholder="ابحث بالاسم أو كود CRISE..." oninput="doSearch()">
-      </div>
-    </div>
-    <div class="results-header" id="results-header">الكل</div>
-    <div class="results-list" id="results-list">
-      <div class="loading"><div class="spinner"></div> جاري التحميل...</div>
-    </div>
-  </aside>
-
-  <!-- Main -->
-  <main class="main" id="main-panel">
-    <div class="empty-state">
-      <div class="empty-icon"><i class="ti ti-map-search"></i></div>
-      <div class="empty-text">ابحث عن مؤسسة</div>
-      <div class="empty-sub">اكتب اسم المؤسسة أو كود CRISE في خانة البحث على اليسار</div>
-    </div>
-  </main>
-
+st.markdown(f"""
+<div class="main-header">
+  <span style="font-size:36px">🏫</span>
+  <div>
+    <h1>لوحة إحصائيات المؤسسات التعليمية</h1>
+    <p>بحث · إحصائيات · موقع جغرافي · مؤسسات قريبة</p>
+  </div>
 </div>
+""", unsafe_allow_html=True)
 
-<script>
-let searchTimer = null;
-let activeCode = null;
+c1,c2,c3,c4,c5 = st.columns(5)
+with c1: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{total}</div><div class="kpi-lbl">إجمالي المؤسسات</div></div>', unsafe_allow_html=True)
+with c2: st.markdown(f'<div class="kpi-card"><div class="kpi-val blue">{n_ibtidai}</div><div class="kpi-lbl">ابتدائية</div></div>', unsafe_allow_html=True)
+with c3: st.markdown(f'<div class="kpi-card"><div class="kpi-val green">{n_idadi}</div><div class="kpi-lbl">إعدادية</div></div>', unsafe_allow_html=True)
+with c4: st.markdown(f'<div class="kpi-card"><div class="kpi-val orange">{n_thanawi}</div><div class="kpi-lbl">ثانوية</div></div>', unsafe_allow_html=True)
+with c5: st.markdown(f'<div class="kpi-card"><div class="kpi-val red">{n_surcharge}</div><div class="kpi-lbl">⚠ مكتظة</div></div>', unsafe_allow_html=True)
 
-// Load global stats
-fetch('/api/stats/global').then(r=>r.json()).then(d=>{
-  document.getElementById('gs-total').textContent = d.total.toLocaleString('ar-MA');
-  document.getElementById('gs-eleves').textContent = (d.total_eleves||0).toLocaleString('ar-MA');
-  document.getElementById('gs-surcharge').textContent = d.surcharge;
-});
+st.markdown("<br>", unsafe_allow_html=True)
 
-// Initial empty search hint
-document.getElementById('results-header').textContent = 'اكتب للبحث';
-document.getElementById('results-list').innerHTML = '<div class="no-results">ابدأ بكتابة اسم أو كود المؤسسة</div>';
+# ── Sidebar search ─────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("### 🔍 البحث عن مؤسسة")
+    query = st.text_input("الاسم أو كود CRISE", placeholder="اكتب للبحث...")
 
-function doSearch(){
-  const q = document.getElementById('search-input').value.trim();
-  clearTimeout(searchTimer);
-  if(!q){ document.getElementById('results-list').innerHTML='<div class="no-results">ابدأ بكتابة اسم أو كود المؤسسة</div>'; return; }
-  document.getElementById('results-list').innerHTML='<div class="loading"><div class="spinner"></div> جاري البحث...</div>';
-  searchTimer = setTimeout(()=>{
-    fetch('/api/search?q='+encodeURIComponent(q))
-      .then(r=>r.json()).then(renderResults);
-  }, 280);
-}
+    if query:
+        q = query.strip().lower()
+        mask = (
+            df[COL["nom_fr"]].str.lower().str.contains(q, na=False) |
+            df[COL["nom_ar"]].str.lower().str.contains(q, na=False) |
+            df[COL["code"]].str.lower().str.contains(q, na=False)
+        )
+        results = df[mask].head(40)
+        st.caption(f"{len(results)} نتيجة")
 
-function renderResults(data){
-  const h = document.getElementById('results-header');
-  const l = document.getElementById('results-list');
-  h.textContent = data.length + ' نتيجة';
-  if(!data.length){ l.innerHTML='<div class="no-results">لا توجد نتائج</div>'; return; }
-  l.innerHTML = data.map(r=>`
-    <div class="result-item${r.code===activeCode?' active':''}" onclick="loadDetail('${r.code}')">
-      <div class="ri-dot ${r.categorie}"></div>
-      <div class="ri-body">
-        <div class="ri-name">${r.nom_fr||r.code}</div>
-        <div class="ri-sub">${r.code}${r.commune?' · '+r.commune:''}</div>
-      </div>
-      <div>
-        <div class="ri-badge badge-${r.categorie}">${catLabel(r.categorie)}</div>
-        ${r.surcharge?'<div style="text-align:right;margin-top:3px"><span class="surcharge-dot"></span><span style="font-size:10px;color:var(--danger);font-weight:600;">مكتظة</span></div>':''}
-      </div>
-    </div>`).join('');
-}
+        if results.empty:
+            st.warning("لا توجد نتائج")
+            selected_code = None
+        else:
+            options = {
+                f"{row[COL['nom_fr']] or row[COL['code']]} ({row[COL['code']]})": row[COL["code"]]
+                for _, row in results.iterrows()
+            }
+            chosen = st.radio("اختر مؤسسة", list(options.keys()), label_visibility="collapsed")
+            selected_code = options[chosen]
+    else:
+        st.info("ابدأ بكتابة اسم أو كود المؤسسة")
+        selected_code = None
 
-function catLabel(c){
-  return {ibtidai:'ابتدائية',idadi:'إعدادية',thanawi:'ثانوية',other:'مؤسسة'}[c]||'مؤسسة';
-}
-
-function loadDetail(code){
-  activeCode = code;
-  document.querySelectorAll('.result-item').forEach(el=>{
-    el.classList.toggle('active', el.onclick.toString().includes(`'${code}'`));
-  });
-  document.getElementById('main-panel').innerHTML='<div class="loading"><div class="spinner"></div> جاري تحميل بيانات المؤسسة...</div>';
-  fetch('/api/etablissement/'+encodeURIComponent(code))
-    .then(r=>r.json()).then(renderDetail);
-}
-
-function renderDetail(d){
-  const taux = d.taux_salles;
-  const surcharged = d.surcharge;
-  const tauxStr = taux!==null ? taux.toFixed(2) : '—';
-  const lat = d.lat, lon = d.lon;
-  const hasCoords = lat && lon;
-
-  const mapIframe = hasCoords
-    ? `<div class="map-wrap"><iframe src="https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed" loading="lazy" allowfullscreen></iframe></div>
-       <div class="map-actions">
-         <button class="map-btn primary" onclick="window.open('https://www.google.com/maps?q=${lat},${lon}&z=16','_blank')"><i class="ti ti-external-link"></i> خرائط Google</button>
-         <button class="map-btn secondary" onclick="window.open('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}','_blank')"><i class="ti ti-360"></i> صورة جوية</button>
-       </div>`
-    : `<div class="map-no-coords"><i class="ti ti-map-pin-off" style="font-size:32px;opacity:.4"></i><span>الإحداثيات غير متوفرة</span></div>`;
-
-  const nearbyLabel = d.categorie==='idadi' ? 'الابتدائيات القريبة في نفس الجماعة' : 'الإعداديات القريبة في نفس الجماعة';
-  const nearbyIcon  = d.categorie==='idadi' ? 'ti-building-school' : 'ti-building-community';
-  const nearbyHTML = (d.categorie==='idadi'||d.categorie==='thanawi')
-    ? `<div class="section-head"><i class="ti ${nearbyIcon}"></i> ${nearbyLabel}</div>
-       ${d.nearby&&d.nearby.length
-         ? d.nearby.map(n=>`
-             <div class="nearby-item">
-               <div>
-                 <div class="nearby-name">${n.nom_fr||n.code}</div>
-                 <div class="nearby-code">${n.code}</div>
-               </div>
-               <span class="nearby-dist">${n.distance} كم</span>
-             </div>`).join('')
-         : '<div class="no-results" style="padding:12px 0">لا توجد مؤسسات قريبة في نفس الجماعة أو لا تتوفر إحداثيات</div>'}`
-    : '<div style="color:var(--gray-500);font-size:13px;padding:8px 0">هذه الخاصية متاحة فقط للإعداديات والثانويات</div>';
-
-  const stats = [
-    {icon:'ti-users',val:d.nb_eleves||'—',lbl:'تلميذ',cls:''},
-    {icon:'ti-door',val:d.nb_classes||'—',lbl:'قسم',cls:''},
-    {icon:'ti-building',val:d.nb_salles||'—',lbl:'حجرة',cls:''},
-    {icon:'ti-chart-bar',val:tauxStr,lbl:'معدل الاستغلال',cls:surcharged?'red':taux?'green':''},
-    {icon:'ti-device-laptop',val:d.nb_ordi||'—',lbl:'كمبيوتر',cls:''},
-    {icon:'ti-run',val:d.nb_sport||'—',lbl:'ملعب',cls:''},
-    {icon:'ti-toilet-paper',val:d.nb_latrines||'—',lbl:'مرحاض',cls:''},
-    {icon:'ti-bed',val:d.nb_internes||'—',lbl:'داخلي',cls:''},
-  ].filter(s=>s.val!=='—'||['تلميذ','قسم','حجرة','معدل الاستغلال'].includes(s.lbl));
-
-  document.getElementById('main-panel').innerHTML = `
-    <div class="inst-header${surcharged?' danger-border':''}">
-      <div class="inst-top">
-        <div>
-          <div class="inst-name-fr">${d.nom_fr||d.code}</div>
-          ${d.nom_ar?`<div class="inst-name-ar">${d.nom_ar}</div>`:''}
-        </div>
-        <span class="ri-badge badge-${d.categorie}" style="font-size:13px;padding:5px 14px">${catLabel(d.categorie)}</span>
-      </div>
-      <div class="inst-chips">
-        ${d.code?`<span class="chip"><i class="ti ti-hash"></i>${d.code}</span>`:''}
-        ${d.commune?`<span class="chip"><i class="ti ti-map-pin"></i>${d.commune}</span>`:''}
-        ${d.province?`<span class="chip"><i class="ti ti-building"></i>${d.province}</span>`:''}
-        ${d.region?`<span class="chip"><i class="ti ti-map"></i>${d.region}</span>`:''}
-        ${d.statut?`<span class="chip"><i class="ti ti-info-circle"></i>${d.statut}</span>`:''}
-      </div>
+# ── Main detail ────────────────────────────────────────────────────────────────
+if not selected_code:
+    st.markdown("""
+    <div style="text-align:center;padding:60px 20px;color:#94a3b8">
+      <div style="font-size:64px;margin-bottom:16px">🗺️</div>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px">ابحث عن مؤسسة</div>
+      <div style="font-size:14px">اكتب اسم المؤسسة أو كود CRISE في خانة البحث على اليمين</div>
     </div>
+    """, unsafe_allow_html=True)
+    st.stop()
 
-    ${surcharged
-      ? `<div class="alert alert-danger"><i class="ti ti-alert-triangle"></i> المؤسسة مكتظة — معدل الاستغلال <strong>${tauxStr}</strong> يتجاوز 1.9 — تحتاج إلى توسيع أو بناء مؤسسة جديدة</div>`
-      : taux!==null
-      ? `<div class="alert alert-success"><i class="ti ti-circle-check"></i> معدل الاستغلال طبيعي — <strong>${tauxStr}</strong></div>`
-      : ''}
+row = df[df[COL["code"]] == selected_code].iloc[0]
+cat   = row["_cat"]
+lat   = row["_lat"]
+lon   = row["_lon"]
+nc    = si(row.get(COL["classes"],0))
+ns    = si(row.get(COL["salles"], 0))
+taux  = round(nc/ns, 2) if ns > 0 else None
+surch = taux is not None and taux > 1.9
 
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('stats',this)"><i class="ti ti-chart-pie"></i> إحصائيات</button>
-      <button class="tab" onclick="switchTab('map',this)"><i class="ti ti-map-pin"></i> الموقع</button>
-      <button class="tab" onclick="switchTab('nearby',this)"><i class="ti ti-building-community"></i> قريب منها</button>
-      <button class="tab" onclick="switchTab('admin',this)"><i class="ti ti-file-description"></i> إدارة</button>
+# Header card
+cat_chip = f'<span class="chip {CAT_COLOR[cat]}">{CAT_LABEL[cat]}</span>'
+chips = ""
+for key, label, icon in [
+    ("code","كود","#"),("commune","الجماعة","📍"),("province","الإقليم","🏛"),
+    ("region","الجهة","🗺"),("statut","الوضع","ℹ"),
+]:
+    v = str(row.get(COL[key],"")).strip()
+    if v: chips += f'<span class="chip">{icon} {v}</span> '
+
+st.markdown(f"""
+<div class="inst-card" style="border-right: 4px solid {'#dc2626' if surch else '#1e40af'}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+    <div>
+      <div class="inst-title">{row.get(COL['nom_fr'],'') or selected_code}</div>
+      <div class="inst-ar">{row.get(COL['nom_ar'],'')}</div>
     </div>
+    {cat_chip}
+  </div>
+  <div style="margin-top:12px">{chips}</div>
+</div>
+""", unsafe_allow_html=True)
 
-    <div id="tab-stats" class="tab-panel active">
-      <div class="stats-grid">
-        ${stats.map(s=>`
-          <div class="stat-card">
-            <div class="stat-icon"><i class="ti ${s.icon}"></i></div>
-            <div class="stat-val ${s.cls}">${typeof s.val==='number'?s.val.toLocaleString('ar-MA'):s.val}</div>
-            <div class="stat-lbl">${s.lbl}</div>
-          </div>`).join('')}
-      </div>
-      ${buildInfoCard('الدعم والتكوين',[
-        ['الدعم المدرسي (مستفيدون)',d.nb_soutien_ben],
-        ['ساعات الدعم',d.nb_soutien_heures],
-        ['التكوين المستمر (مستفيدون)',d.nb_form_ben],
-        ['أيام التكوين',d.nb_form_jours],
-        ['أنشطة لاصفية (منشطون)',d.nb_animateurs],
-      ],'ti-book')}
-      ${buildInfoCard('الداخلية والتغذية',[
-        ['عدد الداخليين',d.nb_internes],
-        ['عدد الأسرة',d.nb_lits],
-        ['بورصة كاملة',d.nb_bourse_complet],
-        ['نصف بورصة',d.nb_demi_bourse],
-        ['أيام التغذية',d.nb_jours_rest],
-        ['تكوين ديني (رتل)',d.nb_rituels],
-      ],'ti-home')}
-      ${buildInfoCard('الامتحانات',[
-        ['أوراق مصححة',d.nb_copies],
-        ['مراكز التصحيح',d.nb_centres_corr],
-        ['المراقبون',d.nb_superviseurs],
-      ],'ti-pencil')}
-    </div>
+# Surcharge alert
+if surch:
+    st.markdown(f'<div class="alert-red">⚠️ المؤسسة مكتظة — معدل الاستغلال <strong>{taux}</strong> يتجاوز 1.9 — تحتاج إلى توسيع أو بناء مؤسسة جديدة</div>', unsafe_allow_html=True)
+elif taux is not None:
+    st.markdown(f'<div class="alert-green">✅ معدل الاستغلال طبيعي — <strong>{taux}</strong></div>', unsafe_allow_html=True)
 
-    <div id="tab-map" class="tab-panel">
-      ${mapIframe}
-      ${hasCoords?`<div style="font-size:12px;color:var(--gray-500);margin-top:4px">إحداثيات: ${lat.toFixed(5)}, ${lon.toFixed(5)}</div>`:''}
-    </div>
+# ── Tabs ───────────────────────────────────────────────────────────────────────
+tab1, tab2, tab3, tab4 = st.tabs(["📊 إحصائيات", "🗺️ الموقع الجغرافي", "🏘️ مؤسسات قريبة", "📋 معلومات إدارية"])
 
-    <div id="tab-nearby" class="tab-panel">
-      ${nearbyHTML}
-    </div>
+# ── Tab 1: Stats ───────────────────────────────────────────────────────────────
+with tab1:
+    k1,k2,k3,k4 = st.columns(4)
+    with k1: st.metric("عدد التلاميذ",    f"{si(row.get(COL['eleves'],0)):,}")
+    with k2: st.metric("عدد الأقسام",     si(row.get(COL['classes'],0)))
+    with k3: st.metric("عدد الحجرات",     si(row.get(COL['salles'],0)))
+    with k4: st.metric("معدل الاستغلال",  f"{taux}" if taux else "—", delta="مكتظة ⚠" if surch else None, delta_color="inverse")
 
-    <div id="tab-admin" class="tab-panel">
-      ${buildInfoCard('معلومات إدارية',[
-        ['المالك',d.proprietaire],
-        ['المسير',d.gestionnaire],
-        ['سنة البناء',d.date_construction],
-        ['آخر تجديد',d.date_maj],
-        ['مؤسسة رائدة',d.pioneer==='1'||d.pioneer==='true'?'نعم':'لا'],
-        ['تاريخ التسمية',d.date_label],
-        ['الملاحق',d.nb_annexes],
-        ['زاوية القراءة (قاعات)',d.nb_coin_lecture],
-      ],'ti-id')}
-    </div>
-  `;
-}
+    st.markdown('<div class="section-title">🏗️ البنية التحتية</div>', unsafe_allow_html=True)
+    b1,b2,b3,b4,b5 = st.columns(5)
+    with b1: st.metric("كمبيوتر",      si(row.get(COL['ordi'],0)))
+    with b2: st.metric("ملاعب",        si(row.get(COL['sport'],0)))
+    with b3: st.metric("مراحيض",       si(row.get(COL['latrines'],0)))
+    with b4: st.metric("مكاتب",        si(row.get(COL['bureaux'],0)))
+    with b5: st.metric("ملاحق",        si(row.get(COL['annexes'],0)))
 
-function buildInfoCard(title, rows, icon){
-  const filtered = rows.filter(([,v])=>v!==null&&v!==undefined&&v!==''&&v!==0&&v!=='0');
-  if(!filtered.length) return '';
-  return `<div class="info-card">
-    <div class="info-card-title"><i class="ti ${icon}" style="font-size:15px"></i> ${title}</div>
-    ${filtered.map(([k,v])=>`
-      <div class="info-row">
-        <span class="info-key">${k}</span>
-        <span class="info-val">${typeof v==='number'?v.toLocaleString('ar-MA'):v}</span>
-      </div>`).join('')}
-  </div>`;
-}
+    st.markdown('<div class="section-title">📚 الدعم والتكوين</div>', unsafe_allow_html=True)
+    d1,d2,d3,d4 = st.columns(4)
+    with d1: st.metric("الدعم المدرسي (مستفيد)",    si(row.get(COL['sout_ben'],0)))
+    with d2: st.metric("ساعات الدعم",               si(row.get(COL['sout_h'],0)))
+    with d3: st.metric("التكوين المستمر (مستفيد)",  si(row.get(COL['form_ben'],0)))
+    with d4: st.metric("أيام التكوين",              si(row.get(COL['form_j'],0)))
 
-function switchTab(name, btn){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  const panel = document.getElementById('tab-'+name);
-  if(panel) panel.classList.add('active');
-}
-</script>
-</body>
-</html>
-"""
+    if si(row.get(COL['internes'],0)) > 0:
+        st.markdown('<div class="section-title">🏠 الداخلية والتغذية</div>', unsafe_allow_html=True)
+        i1,i2,i3,i4,i5 = st.columns(5)
+        with i1: st.metric("الداخليون", si(row.get(COL['internes'],0)))
+        with i2: st.metric("الأسرة",    si(row.get(COL['lits'],0)))
+        with i3: st.metric("بورصة كاملة", si(row.get(COL['b_complet'],0)))
+        with i4: st.metric("نصف بورصة",  si(row.get(COL['b_demi'],0)))
+        with i5: st.metric("أيام التغذية", si(row.get(COL['rest_j'],0)))
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    if si(row.get(COL['copies'],0)) > 0:
+        st.markdown('<div class="section-title">✏️ الامتحانات</div>', unsafe_allow_html=True)
+        e1,e2,e3 = st.columns(3)
+        with e1: st.metric("أوراق مصححة",   si(row.get(COL['copies'],0)))
+        with e2: st.metric("مراكز التصحيح", si(row.get(COL['centres'],0)))
+        with e3: st.metric("المراقبون",      si(row.get(COL['superv'],0)))
+
+# ── Tab 2: Map ────────────────────────────────────────────────────────────────
+with tab2:
+    if lat and lon:
+        map_df = pd.DataFrame({"lat":[lat],"lon":[lon],"name":[row.get(COL['nom_fr'],'')]})
+        st.map(map_df, zoom=14)
+        st.markdown(f"**إحداثيات:** {lat:.5f}, {lon:.5f}")
+        gcol1, gcol2 = st.columns(2)
+        with gcol1:
+            st.link_button("📍 فتح في خرائط Google", f"https://www.google.com/maps?q={lat},{lon}&z=16")
+        with gcol2:
+            st.link_button("🛰️ الصورة الجوية (Street View)", f"https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={lat},{lon}")
+    else:
+        st.warning("الإحداثيات غير متوفرة لهذه المؤسسة")
+
+# ── Tab 3: Nearby ─────────────────────────────────────────────────────────────
+with tab3:
+    commune = str(row.get(COL["commune"],"")).strip()
+
+    if cat == "idadi":
+        target_cat, target_label = "ibtidai", "الابتدائيات القريبة في نفس الجماعة"
+    elif cat == "thanawi":
+        target_cat, target_label = "idadi", "الإعداديات القريبة في نفس الجماعة"
+    else:
+        target_cat, target_label = None, None
+
+    if not target_cat:
+        st.info("هذه الخاصية متاحة فقط للإعداديات (← ابتدائيات) والثانويات (← إعداديات)")
+    elif not commune:
+        st.warning("الجماعة غير محددة لهذه المؤسسة")
+    elif not (lat and lon):
+        st.warning("الإحداثيات غير متوفرة — لا يمكن حساب المسافات")
+    else:
+        nearby = df[(df["_cat"]==target_cat) & (df[COL["commune"]]==commune) & (df.index!=row.name)]
+        nearby = nearby[nearby["_lat"]!=0].copy()
+        nearby["_dist"] = nearby.apply(lambda r: haversine(lat,lon,r["_lat"],r["_lon"]), axis=1)
+        nearby = nearby.sort_values("_dist").head(10)
+
+        st.markdown(f'<div class="section-title">🏘️ {target_label}</div>', unsafe_allow_html=True)
+        if nearby.empty:
+            st.info("لا توجد مؤسسات مطابقة في نفس الجماعة أو لا تتوفر إحداثيات")
+        else:
+            for _, nr in nearby.iterrows():
+                nm = nr.get(COL["nom_fr"],"") or nr.get(COL["code"],"")
+                cd = nr.get(COL["code"],"")
+                dist = nr["_dist"]
+                st.markdown(f"""
+                <div class="nearby-row">
+                  <div>
+                    <div class="nearby-name">{nm}</div>
+                    <div class="nearby-code">{cd}</div>
+                  </div>
+                  <span class="dist-badge">{dist} كم</span>
+                </div>""", unsafe_allow_html=True)
+
+            # Map with all nearby
+            map_data = pd.DataFrame({
+                "lat": [lat] + list(nearby["_lat"]),
+                "lon": [lon] + list(nearby["_lon"]),
+            })
+            st.markdown("**خريطة المؤسسات القريبة:**")
+            st.map(map_data, zoom=12)
+
+# ── Tab 4: Admin ──────────────────────────────────────────────────────────────
+with tab4:
+    fields = [
+        ("المالك",          row.get(COL["proprio"],"")),
+        ("المسير",          row.get(COL["gestion"],"")),
+        ("تاريخ البناء",    row.get(COL["dt_constr"],"")),
+        ("آخر تجديد",      row.get(COL["dt_maj"],"")),
+        ("مؤسسة رائدة",   "نعم" if str(row.get(COL["pioneer"],"")) in ["1","True","true","نعم"] else "لا"),
+        ("تاريخ التسمية",  row.get(COL["dt_label"],"")),
+        ("زاوية القراءة",  si(row.get(COL["coin_lect"],0))),
+        ("التراتيل",       si(row.get(COL["rituels"],0))),
+        ("المنشطون",       si(row.get(COL["animat"],0))),
+    ]
+    for label, val in fields:
+        if val and val not in [0,"0",""]:
+            st.markdown(f"""
+            <div class="nearby-row">
+              <span style="color:#64748b;font-size:13px">{label}</span>
+              <strong style="font-size:13px">{val}</strong>
+            </div>""", unsafe_allow_html=True)
