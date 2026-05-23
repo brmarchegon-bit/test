@@ -452,6 +452,25 @@ html, body, [class*="css"], .stApp {
   width:20px; height:20px; background:var(--red); color:white;
   border-radius:50%; font-size:10px; font-weight:900; margin-right:6px;
 }
+
+/* inst list buttons */
+div[data-testid="stSidebar"] .stButton > button {
+  text-align: right !important;
+  justify-content: flex-start !important;
+  font-size: 12px !important;
+  padding: 7px 12px !important;
+  border-radius: 8px !important;
+  margin-bottom: 2px !important;
+  white-space: normal !important;
+  height: auto !important;
+  line-height: 1.4 !important;
+}
+div[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+  background: rgba(201,168,76,.18) !important;
+  border: 1px solid rgba(201,168,76,.5) !important;
+  color: var(--gold) !important;
+  font-weight: 800 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -714,22 +733,29 @@ with st.sidebar:
 
     all_provinces = sorted(df[COL["province"]].dropna().unique().tolist())
     prov_options  = ["— اختر المديرية —"] + all_provinces
-    cur_prov_idx  = (prov_options.index(st.session_state.sel_province)
-                     if st.session_state.sel_province in prov_options else 0)
 
-    chosen_prov = st.selectbox("", prov_options, index=cur_prov_idx,
-                               label_visibility="collapsed", key="sb_prov")
-    if chosen_prov != "— اختر المديرية —":
-        if chosen_prov != st.session_state.sel_province:
-            st.session_state.sel_province = chosen_prov
-            reset_from_province()
-            st.rerun()
-    else:
-        if st.session_state.sel_province is not None:
-            st.session_state.sel_province = None
-            reset_from_province()
-            st.session_state.view_level = "global"
-            st.rerun()
+    def _on_prov_change():
+        new_p = st.session_state._sb_prov
+        if new_p == "— اختر المديرية —":
+            st.session_state.sel_province  = None
+            st.session_state.sel_commune   = None
+            st.session_state.inst_query    = ""
+            st.session_state.selected_code = None
+            st.session_state.view_level    = "global"
+        else:
+            if new_p != st.session_state.sel_province:
+                st.session_state.sel_province  = new_p
+                st.session_state.sel_commune   = None
+                st.session_state.inst_query    = ""
+                st.session_state.selected_code = None
+                st.session_state.view_level    = "province"
+
+    cur_prov_idx = (prov_options.index(st.session_state.sel_province)
+                    if st.session_state.sel_province in prov_options else 0)
+
+    st.selectbox("", prov_options, index=cur_prov_idx,
+                 label_visibility="collapsed", key="_sb_prov",
+                 on_change=_on_prov_change)
 
     # ── STEP 2 : Commune (only if province chosen) ─────
     if st.session_state.sel_province:
@@ -748,22 +774,26 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
+        def _on_comm_change():
+            new_c = st.session_state._sb_comm
+            if new_c == "— اختر الجماعة —":
+                st.session_state.sel_commune   = None
+                st.session_state.inst_query    = ""
+                st.session_state.selected_code = None
+                st.session_state.view_level    = "province"
+            else:
+                if new_c != st.session_state.sel_commune:
+                    st.session_state.sel_commune   = new_c
+                    st.session_state.inst_query    = ""
+                    st.session_state.selected_code = None
+                    st.session_state.view_level    = "commune"
+
         cur_comm_idx = (comm_opts.index(st.session_state.sel_commune)
                         if st.session_state.sel_commune in comm_opts else 0)
 
-        chosen_comm = st.selectbox("", comm_opts, index=cur_comm_idx,
-                                   label_visibility="collapsed", key="sb_comm")
-        if chosen_comm != "— اختر الجماعة —":
-            if chosen_comm != st.session_state.sel_commune:
-                st.session_state.sel_commune = chosen_comm
-                reset_from_commune()
-                st.rerun()
-        else:
-            if st.session_state.sel_commune is not None:
-                st.session_state.sel_commune = None
-                reset_from_commune()
-                st.session_state.view_level = "province"
-                st.rerun()
+        st.selectbox("", comm_opts, index=cur_comm_idx,
+                     label_visibility="collapsed", key="_sb_comm",
+                     on_change=_on_comm_change)
 
     # ── STEP 3 : Institution search (live filter) ──────
     if st.session_state.sel_province:
@@ -813,18 +843,17 @@ with st.sidebar:
         if results3.empty:
             st.markdown('<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">لا توجد نتائج</div>', unsafe_allow_html=True)
         else:
-            opts3 = {}
             for _, r3 in results3.iterrows():
-                lbl3 = r3.get(COL["nom_fr"],"") or r3.get(COL["code"],"")
-                cat3l= CAT_LABEL.get(r3["_cat"],"")
-                opts3[f"{lbl3}  [{cat3l}]"] = r3[COL["code"]]
-
-            chosen3 = st.radio("", list(opts3.keys()), label_visibility="collapsed", key="sb_inst_radio")
-            new_code = opts3[chosen3]
-            if new_code != st.session_state.selected_code:
-                st.session_state.selected_code = new_code
-                st.session_state.view_level    = "inst"
-                st.rerun()
+                lbl3  = r3.get(COL["nom_fr"],"") or r3.get(COL["code"],"")
+                cat3l = CAT_LABEL.get(r3["_cat"],"")
+                code3 = r3[COL["code"]]
+                is_sel = (st.session_state.selected_code == code3)
+                btn_style = "primary" if is_sel else "secondary"
+                if st.button(f"{lbl3}  [{cat3l}]", key=f"inst_btn_{code3}",
+                             use_container_width=True, type=btn_style):
+                    st.session_state.selected_code = code3
+                    st.session_state.view_level    = "inst"
+                    st.rerun()
 
     # ── Action buttons ──────────────────────────────────
     st.markdown('<div style="padding:0 14px;margin-top:16px">', unsafe_allow_html=True)
@@ -843,9 +872,7 @@ with st.sidebar:
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# resolve selected code
-selected_code = st.session_state.selected_code
-view_level    = st.session_state.view_level
+# action buttons flags resolved above in sidebar
 
 # ══════════════════════════════════════════════════════
 #  ADMIN: PENDING
@@ -1119,6 +1146,9 @@ def show_scope_stats(df_s, scope_name, scope_icon=""):
 # ══════════════════════════════════════════════════════
 #  ROUTING: province / commune / inst / global
 # ══════════════════════════════════════════════════════
+selected_code = st.session_state.selected_code
+
+# If institution selected → go straight to detail, skip scope stats
 if not selected_code:
     sel_prov = st.session_state.sel_province
     sel_comm = st.session_state.sel_commune
