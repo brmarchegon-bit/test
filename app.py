@@ -664,6 +664,31 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════
+#  SESSION STATE INIT
+# ══════════════════════════════════════════════════════
+for _k, _v in [("sel_province", None), ("sel_commune", None),
+                ("inst_query", ""), ("selected_code", None),
+                ("view_level", "global")]:
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
+
+# helpers to reset cascade
+def reset_from_province():
+    st.session_state.sel_commune  = None
+    st.session_state.inst_query   = ""
+    st.session_state.selected_code= None
+    st.session_state.view_level   = "province"
+
+def reset_from_commune():
+    st.session_state.inst_query   = ""
+    st.session_state.selected_code= None
+    st.session_state.view_level   = "commune"
+
+def reset_from_inst():
+    st.session_state.selected_code= None
+    st.session_state.view_level   = "inst"
+
+# ══════════════════════════════════════════════════════
 #  SIDEBAR
 # ══════════════════════════════════════════════════════
 with st.sidebar:
@@ -675,43 +700,152 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sb-section"><div class="sb-section-title">🔍 البحث</div>', unsafe_allow_html=True)
-    query = st.text_input("", placeholder="اسم المؤسسة أو كود CRISE...", label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
+    # ── STEP 1 : Province ──────────────────────────────
+    st.markdown("""
+    <div style="padding:0 14px;margin-bottom:6px">
+      <div style="font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.5px;
+           text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span style="background:var(--gold);color:#080c14;border-radius:50%;width:16px;height:16px;
+             display:inline-flex;align-items:center;justify-content:center;font-size:9px">1</span>
+        المديرية / الإقليم
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sb-section"><div class="sb-section-title">📋 الأقسام</div>', unsafe_allow_html=True)
+    all_provinces = sorted(df[COL["province"]].dropna().unique().tolist())
+    prov_options  = ["— اختر المديرية —"] + all_provinces
+    cur_prov_idx  = (prov_options.index(st.session_state.sel_province)
+                     if st.session_state.sel_province in prov_options else 0)
+
+    chosen_prov = st.selectbox("", prov_options, index=cur_prov_idx,
+                               label_visibility="collapsed", key="sb_prov")
+    if chosen_prov != "— اختر المديرية —":
+        if chosen_prov != st.session_state.sel_province:
+            st.session_state.sel_province = chosen_prov
+            reset_from_province()
+            st.rerun()
+    else:
+        if st.session_state.sel_province is not None:
+            st.session_state.sel_province = None
+            reset_from_province()
+            st.session_state.view_level = "global"
+            st.rerun()
+
+    # ── STEP 2 : Commune (only if province chosen) ─────
+    if st.session_state.sel_province:
+        df_prov   = df[df[COL["province"]] == st.session_state.sel_province]
+        all_comm  = sorted(df_prov[COL["commune"]].dropna().unique().tolist())
+        comm_opts = ["— اختر الجماعة —"] + all_comm
+
+        st.markdown("""
+        <div style="padding:0 14px;margin:10px 0 6px">
+          <div style="font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.5px;
+               text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+            <span style="background:var(--gold);color:#080c14;border-radius:50%;width:16px;height:16px;
+                 display:inline-flex;align-items:center;justify-content:center;font-size:9px">2</span>
+            الجماعة
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        cur_comm_idx = (comm_opts.index(st.session_state.sel_commune)
+                        if st.session_state.sel_commune in comm_opts else 0)
+
+        chosen_comm = st.selectbox("", comm_opts, index=cur_comm_idx,
+                                   label_visibility="collapsed", key="sb_comm")
+        if chosen_comm != "— اختر الجماعة —":
+            if chosen_comm != st.session_state.sel_commune:
+                st.session_state.sel_commune = chosen_comm
+                reset_from_commune()
+                st.rerun()
+        else:
+            if st.session_state.sel_commune is not None:
+                st.session_state.sel_commune = None
+                reset_from_commune()
+                st.session_state.view_level = "province"
+                st.rerun()
+
+    # ── STEP 3 : Institution search (live filter) ──────
+    if st.session_state.sel_province:
+        df_scope = df[df[COL["province"]] == st.session_state.sel_province]
+        if st.session_state.sel_commune:
+            df_scope = df_scope[df_scope[COL["commune"]] == st.session_state.sel_commune]
+
+        st.markdown("""
+        <div style="padding:0 14px;margin:10px 0 6px">
+          <div style="font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.5px;
+               text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+            <span style="background:var(--gold);color:#080c14;border-radius:50%;width:16px;height:16px;
+                 display:inline-flex;align-items:center;justify-content:center;font-size:9px">3</span>
+            البحث عن المؤسسة
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        def _on_inst_query():
+            st.session_state.inst_query   = st.session_state._inst_q
+            st.session_state.selected_code= None
+            st.session_state.view_level   = "province" if not st.session_state.sel_commune else "commune"
+
+        st.text_input("", placeholder="اسم أو كود CRISE...",
+                      label_visibility="collapsed",
+                      key="_inst_q",
+                      value=st.session_state.inst_query,
+                      on_change=_on_inst_query)
+
+        q3 = st.session_state.inst_query.strip().lower()
+        if q3:
+            mask3 = (
+                df_scope[COL["nom_fr"]].str.lower().str.contains(q3, na=False) |
+                df_scope[COL["nom_ar"]].str.lower().str.contains(q3, na=False) |
+                df_scope[COL["code"]].str.lower().str.contains(q3, na=False)
+            )
+            results3 = df_scope[mask3].head(40)
+        else:
+            results3 = df_scope.head(60)
+
+        n_res = len(results3)
+        st.markdown(f"""
+        <div style="padding:0 14px 6px;font-size:10px;color:var(--muted);font-weight:600">
+          {n_res} مؤسسة
+        </div>""", unsafe_allow_html=True)
+
+        if results3.empty:
+            st.markdown('<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">لا توجد نتائج</div>', unsafe_allow_html=True)
+        else:
+            opts3 = {}
+            for _, r3 in results3.iterrows():
+                lbl3 = r3.get(COL["nom_fr"],"") or r3.get(COL["code"],"")
+                cat3l= CAT_LABEL.get(r3["_cat"],"")
+                opts3[f"{lbl3}  [{cat3l}]"] = r3[COL["code"]]
+
+            chosen3 = st.radio("", list(opts3.keys()), label_visibility="collapsed", key="sb_inst_radio")
+            new_code = opts3[chosen3]
+            if new_code != st.session_state.selected_code:
+                st.session_state.selected_code = new_code
+                st.session_state.view_level    = "inst"
+                st.rerun()
+
+    # ── Action buttons ──────────────────────────────────
+    st.markdown('<div style="padding:0 14px;margin-top:16px">', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">📋 الأدوات</div>', unsafe_allow_html=True)
     show_surch  = st.button("⚠️  المؤسسات المكتظة",  use_container_width=True)
     show_global = st.button("📊  الإحصائيات العامة", use_container_width=True)
     if is_admin and pending:
-        badge_n = f"  ({len(pending)})"
-        show_pending = st.button(f"🔔  طلبات الحسابات{badge_n}", use_container_width=True)
+        show_pending = st.button(f"🔔  طلبات الحسابات  ({len(pending)})", use_container_width=True)
     else:
         show_pending = False
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="sb-section">', unsafe_allow_html=True)
+    st.markdown('<div style="padding:0 14px;margin-top:8px">', unsafe_allow_html=True)
     if st.button("🚪  تسجيل الخروج", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    selected_code = None
-    if query:
-        q = query.strip().lower()
-        mask = (
-            df[COL["nom_fr"]].str.lower().str.contains(q,na=False) |
-            df[COL["nom_ar"]].str.lower().str.contains(q,na=False) |
-            df[COL["code"]].str.lower().str.contains(q,na=False)
-        )
-        results = df[mask].head(40)
-        st.markdown(f'<div class="sb-section"><div class="sb-section-title">النتائج · {len(results)}</div>', unsafe_allow_html=True)
-        if results.empty:
-            st.markdown('<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">لا توجد نتائج</div>', unsafe_allow_html=True)
-        else:
-            opts = {f"{r[COL['nom_fr']] or r[COL['code']]} ({r[COL['code']]})": r[COL["code"]] for _,r in results.iterrows()}
-            chosen = st.radio("", list(opts.keys()), label_visibility="collapsed")
-            selected_code = opts[chosen]
-        st.markdown('</div>', unsafe_allow_html=True)
+# resolve selected code
+selected_code = st.session_state.selected_code
+view_level    = st.session_state.view_level
 
 # ══════════════════════════════════════════════════════
 #  ADMIN: PENDING
@@ -888,17 +1022,142 @@ if show_surch:
     st.stop()
 
 # ══════════════════════════════════════════════════════
-#  EMPTY STATE
+#  STATS HELPER (reusable for province / commune)
 # ══════════════════════════════════════════════════════
-if not selected_code:
-    st.markdown("""
-    <div class="empty-state">
-      <div class="empty-icon">🗺️</div>
-      <div class="empty-title">ابحث عن مؤسسة تعليمية</div>
-      <div class="empty-sub">اكتب اسم المؤسسة أو كود CRISE في خانة البحث على اليمين</div>
+def show_scope_stats(df_s, scope_name, scope_icon=""):
+    tot_s   = len(df_s)
+    n_ibt_s = int((df_s["_cat"]=="ibtidai").sum())
+    n_ida_s = int((df_s["_cat"]=="idadi").sum())
+    n_tha_s = int((df_s["_cat"]=="thanawi").sum())
+    n_src_s = int(df_s["_surch"].sum())
+    n_elv_s = int(df_s["_elev"].sum())
+
+    st.markdown(f"""
+    <div class="inst-hero neutral" style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="font-size:40px">{scope_icon}</div>
+        <div>
+          <div style="font-size:22px;font-weight:900;color:var(--gold)">{scope_name}</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:3px">احصائيات شاملة &middot; {tot_s} مؤسسة</div>
+        </div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
-    st.stop()
+
+    st.markdown(f"""
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px">
+      <div class="kpi-card c-gold"><div class="kpi-val" style="font-size:24px">{tot_s}</div><div class="kpi-lbl">اجمالي</div></div>
+      <div class="kpi-card c-blue"><div class="kpi-val" style="font-size:24px">{n_ibt_s}</div><div class="kpi-lbl">ابتدائية</div></div>
+      <div class="kpi-card c-green"><div class="kpi-val" style="font-size:24px">{n_ida_s}</div><div class="kpi-lbl">اعدادية</div></div>
+      <div class="kpi-card c-purple"><div class="kpi-val" style="font-size:24px">{n_tha_s}</div><div class="kpi-lbl">تاهيلية</div></div>
+      <div class="kpi-card c-red"><div class="kpi-val" style="font-size:24px">{n_src_s}</div><div class="kpi-lbl">مكتظة</div></div>
+      <div class="kpi-card c-orange"><div class="kpi-val" style="font-size:24px">{n_elv_s:,}</div><div class="kpi-lbl">تلميذ</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    ca, cb = st.columns(2)
+    with ca:
+        st.markdown('<div class="chart-card"><div class="chart-title">توزيع حسب النوع</div>', unsafe_allow_html=True)
+        for lbl,val,col in [("ابتدائية",n_ibt_s,"#3b82f6"),("اعدادية",n_ida_s,"#10b981"),("تاهيلية",n_tha_s,"#8b5cf6")]:
+            st.markdown(bar_html(lbl,val,tot_s or 1,col), unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with cb:
+        st.markdown('<div class="chart-card"><div class="chart-title">الاكتظاظ</div>', unsafe_allow_html=True)
+        for cat_k,lbl in [("ibtidai","ابتدائية"),("idadi","اعدادية"),("thanawi","تاهيلية")]:
+            sub_s = df_s[df_s["_cat"]==cat_k]
+            ns_s  = int(sub_s["_surch"].sum())
+            tot_ss= len(sub_s)
+            pct_s = round(ns_s/tot_ss*100,1) if tot_ss else 0
+            col_s = "#ef4444" if pct_s>10 else "#f97316" if pct_s>5 else "#10b981"
+            st.markdown(bar_html(lbl,ns_s,tot_ss or 1,col_s,f" من {tot_ss}"), unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    cc, cd = st.columns(2)
+    with cc:
+        st.markdown('<div class="chart-card"><div class="chart-title">البنية التحتية</div>', unsafe_allow_html=True)
+        infra_s = [
+            ("sport","ملاعب"),("latrines","مراحيض"),("lits","اسرة داخلية"),
+            ("coin_lect","زوايا قراءة"),("annexes","ملحقات"),
+        ]
+        for key_i,lbl_i in infra_s:
+            val_i = safe_col_sum(df_s, COL[key_i])
+            st.markdown(f'<div class="infra-row"><span class="infra-lbl">{lbl_i}</span><span class="infra-val">{val_i:,}</span></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with cd:
+        st.markdown('<div class="chart-card"><div class="chart-title">الوضع الاداري</div>', unsafe_allow_html=True)
+        stat_s   = df_s.groupby(COL["statut"]).size().sort_values(ascending=False)
+        colors_s = ["#10b981","#ef4444","#f97316","#0891b2","#8b5cf6","#64748b"]
+        for i,(stat,cnt) in enumerate(stat_s.items()):
+            pct_st2 = round(cnt/(tot_s or 1)*100,1)
+            st.markdown(f"""
+            <div class="infra-row">
+              <span class="infra-lbl" style="color:{colors_s[i%6]}">{stat}</span>
+              <span class="infra-val">{cnt} <span style="font-size:11px;color:var(--muted)">({pct_st2}%)</span></span>
+            </div>""", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    sdf_s = df_s[df_s["_surch"]].sort_values("_taux",ascending=False).head(8)
+    if not sdf_s.empty:
+        st.markdown('<div class="section-hd">اكثر المؤسسات اكتظاظا <span>TOP</span></div>', unsafe_allow_html=True)
+        for _,r_s in sdf_s.iterrows():
+            nm_s  = r_s.get(COL["nom_fr"],"") or r_s.get(COL["code"],"")
+            cat_s = r_s["_cat"]
+            com_s = r_s.get(COL["commune"],"")
+            st.markdown(f"""
+            <div class="surch-card">
+              <div>
+                <div style="font-size:13px;font-weight:800;color:var(--text)">{nm_s}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:3px">
+                  <span class="chip {CAT_CHIP[cat_s]}" style="font-size:10px">{CAT_LABEL[cat_s]}</span> {com_s}
+                </div>
+              </div>
+              <span class="surch-taux">{r_s['_taux']}</span>
+            </div>""", unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════
+#  ROUTING: province / commune / inst / global
+# ══════════════════════════════════════════════════════
+if not selected_code:
+    sel_prov = st.session_state.sel_province
+    sel_comm = st.session_state.sel_commune
+
+    if sel_prov and sel_comm:
+        df_comm = df[(df[COL["province"]]==sel_prov) & (df[COL["commune"]]==sel_comm)]
+        show_scope_stats(df_comm, sel_comm, "")
+        st.stop()
+
+    elif sel_prov:
+        df_prov2 = df[df[COL["province"]]==sel_prov]
+        show_scope_stats(df_prov2, sel_prov, "")
+        st.markdown('<div class="section-hd">الجماعات <span>BREAKDOWN</span></div>', unsafe_allow_html=True)
+        comm_grp = df_prov2.groupby(COL["commune"]).agg(
+            total=("_cat","count"),
+            eleves=("_elev","sum"),
+            surch=("_surch","sum")
+        ).sort_values("total",ascending=False)
+        for comm_n, row_c in comm_grp.iterrows():
+            pct_c = round(row_c["total"]/(len(df_prov2) or 1)*100,1)
+            st.markdown(f"""
+            <div class="nearby-card">
+              <div>
+                <div class="nearby-name">{comm_n}</div>
+                <div class="nearby-sub">{int(row_c['total'])} مؤسسة &middot; {int(row_c['eleves']):,} تلميذ &middot; {int(row_c['surch'])} مكتظة</div>
+              </div>
+              <span class="dist-pill">{pct_c}%</span>
+            </div>""", unsafe_allow_html=True)
+        st.stop()
+
+    else:
+        st.markdown("""
+        <div class="empty-state">
+          <div class="empty-icon">🗺️</div>
+          <div class="empty-title">اختر المديرية للبدء</div>
+          <div class="empty-sub">البحث تسلسلي: المديرية - الجماعة - المؤسسة</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.stop()
 
 # ══════════════════════════════════════════════════════
 #  DETAIL VIEW
