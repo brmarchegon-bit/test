@@ -1281,8 +1281,8 @@ with tabs[1]:
 
             # ① التوسيع
             st.markdown('<div style="font-size:11px;font-weight:700;color:#f97316;margin-bottom:4px">① توسيع داخلي</div>', unsafe_allow_html=True)
-            for r in expand["reasons"]:
-                rcolor = "#34d399" if r.startswith("✅") else ("#fb923c" if r.startswith("ℹ️") else "#64748b")
+            for r in expand["expand_options"]:
+                rcolor = "#34d399" if r.startswith("✅") else ("#fb923c" if r.startswith("ℹ️") else ("#fbbf24" if r.startswith("⚠️") else "#f87171"))
                 st.markdown(f'<div style="font-size:11px;color:{rcolor};padding:2px 8px">{r}</div>', unsafe_allow_html=True)
 
             # ② تحويل
