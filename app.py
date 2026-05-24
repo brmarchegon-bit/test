@@ -261,7 +261,7 @@ is_inspect = st.session_state.get("is_inspect", False)
 for _k, _v in [
     ("sel_province", None), ("sel_commune", None), ("inst_query", ""),
     ("selected_code", None), ("view_level", "global"), ("compare_code", None),
-    ("active_tab", 0), ("show_admin_panel", False)
+    ("active_tab", 0)
 ]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
@@ -286,15 +286,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ══ ADMIN BUTTON (top right, admin only) ══
-if is_admin:
-    admin_col = st.columns([6, 1])[1]
-    with admin_col:
-        btn_label = "🔒 إغلاق الإدارة" if st.session_state.show_admin_panel else "⚙️ لوحة الإدارة"
-        if st.button(btn_label, key="toggle_admin_panel", type="primary"):
-            st.session_state.show_admin_panel = not st.session_state.show_admin_panel
-            st.rerun()
-
 # ══ KPI ══
 st.markdown(f"""
 <div class="kpi-grid">
@@ -307,30 +298,448 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ══ ADMIN PANEL SIDEBAR ══
-if is_admin and st.session_state.show_admin_panel:
-    with st.sidebar:
-        st.markdown("""
-        <div style="padding:18px 16px 12px;border-bottom:1px solid var(--border);
-                    background:linear-gradient(135deg,rgba(201,168,76,.08),transparent)">
-          <div style="font-size:16px;font-weight:900;color:var(--gold)">⚙️ لوحة المسؤول</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">إدارة المستخدمين والطلبات</div>
-        </div>
-        """, unsafe_allow_html=True)
+# ══ SIDEBAR ══
+with st.sidebar:
+    st.markdown("""
+    <div style="padding:24px 16px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-size:18px;font-weight:900;color:var(--gold)">🎓 المنظومة التعليمية</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">لوحة الإدارة المتكاملة</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        adm_tab1, adm_tab2, adm_tab3 = st.tabs(["👥 الطلبات", "🔑 المستخدمون", "🗑️ حذف"])
+    # ── 1 Province
+    st.markdown('<div style="padding:14px 14px 6px"><div style="font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.2px;margin-bottom:6px">① المديرية / الإقليم</div></div>', unsafe_allow_html=True)
+    all_provinces = sorted(df[COL["province"]].dropna().unique().tolist())
+    prov_options  = ["— اختر المديرية —"] + all_provinces
 
+    def _on_prov():
+        new_p = st.session_state._sb_prov
+        if new_p == "— اختر المديرية —":
+            for k, v in [("sel_province",None),("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","global"),("compare_code",None)]:
+                st.session_state[k] = v
+        elif new_p != st.session_state.sel_province:
+            st.session_state.sel_province = new_p
+            for k, v in [("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","province"),("compare_code",None)]:
+                st.session_state[k] = v
+
+    cur_pi = prov_options.index(st.session_state.sel_province) if st.session_state.sel_province in prov_options else 0
+    st.selectbox("", prov_options, index=cur_pi, label_visibility="collapsed", key="_sb_prov", on_change=_on_prov)
+
+    # ── 2 Commune
+    if st.session_state.sel_province:
+        df_prov   = df[df[COL["province"]] == st.session_state.sel_province]
+        all_comm  = sorted(df_prov[COL["commune"]].dropna().unique().tolist())
+        comm_opts = ["— اختر الجماعة —"] + all_comm
+        st.markdown('<div style="padding:10px 14px 6px"><div style="font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.2px;margin-bottom:6px">② الجماعة</div></div>', unsafe_allow_html=True)
+
+        def _on_comm():
+            new_c = st.session_state._sb_comm
+            if new_c == "— اختر الجماعة —":
+                for k, v in [("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","province"),("compare_code",None)]:
+                    st.session_state[k] = v
+            elif new_c != st.session_state.sel_commune:
+                st.session_state.sel_commune = new_c
+                for k, v in [("inst_query",""),("selected_code",None),("view_level","commune"),("compare_code",None)]:
+                    st.session_state[k] = v
+
+        cur_ci = comm_opts.index(st.session_state.sel_commune) if st.session_state.sel_commune in comm_opts else 0
+        st.selectbox("", comm_opts, index=cur_ci, label_visibility="collapsed", key="_sb_comm", on_change=_on_comm)
+
+    # ── 3 Live Search
+    if st.session_state.sel_province:
+        df_scope = df[df[COL["province"]] == st.session_state.sel_province]
+        if st.session_state.sel_commune:
+            df_scope = df_scope[df_scope[COL["commune"]] == st.session_state.sel_commune]
+
+        st.markdown('<div style="padding:10px 14px 6px"><div style="font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.2px;margin-bottom:6px">③ البحث الفوري</div></div>', unsafe_allow_html=True)
+
+        def _on_search():
+            st.session_state.inst_query   = st.session_state._sb_search
+            st.session_state.selected_code = None
+
+        st.text_input("", placeholder="🔍 ابحث عن مؤسسة…", value=st.session_state.inst_query,
+                      label_visibility="collapsed", key="_sb_search", on_change=_on_search)
+
+        q = st.session_state.inst_query.strip().lower()
+        if q:
+            mask = (
+                df_scope[COL["nom_ar"]].str.lower().str.contains(q, na=False) |
+                df_scope[COL["nom_fr"]].str.lower().str.contains(q, na=False) |
+                df_scope[COL["code"]].str.lower().str.contains(q, na=False)
+            )
+            results = df_scope[mask].head(20)
+            st.markdown(f'<div style="padding:4px 14px;font-size:11px;color:var(--muted)">{len(results)} نتيجة</div>', unsafe_allow_html=True)
+            for _, row in results.iterrows():
+                code = str(row.get(COL["code"], ""))
+                name = str(row.get(COL["nom_ar"], row.get(COL["nom_fr"], code)))
+                cat  = row.get("_cat", "other")
+                chip_cls = CAT_CHIP.get(cat, "chip-gray")
+                lbl  = CAT_LABEL.get(cat, "")
+                is_sel = st.session_state.selected_code == code
+                border = "border-color:var(--gold)" if is_sel else ""
+                st.markdown(f"""
+                <div style="padding:4px 14px">
+                  <div style="background:var(--surface2);border:1px solid var(--border2);{border};border-radius:10px;padding:10px 12px;margin-bottom:6px">
+                    <div style="font-size:13px;font-weight:700;color:var(--text)">{name}</div>
+                    <div style="margin-top:4px"><span class="chip {chip_cls}">{lbl}</span><span style="font-size:11px;color:var(--muted);margin-right:6px">{code}</span></div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button(f"عرض", key=f"sel_{code}"):
+                    st.session_state.selected_code = code
+                    st.session_state.view_level    = "institution"
+                    st.rerun()
+
+    # ── Logout
+    st.markdown('<div style="height:30px"></div>', unsafe_allow_html=True)
+    if st.button("🚪 تسجيل الخروج", key="logout_btn"):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
+
+
+# ══════════════════════════════════════════════════════
+#  MAIN TABS
+# ══════════════════════════════════════════════════════
+tabs_labels = ["🏫 المؤسسات", "📊 الإحصائيات", "🗺️ الخريطة"]
+if is_admin:
+    tabs_labels.append("⚙️ الإدارة")
+
+tabs = st.tabs(tabs_labels)
+
+# ──────────────────────────────────────────────────────
+#  TAB 1 — INSTITUTIONS LIST + DETAIL
+# ──────────────────────────────────────────────────────
+with tabs[0]:
+    # ── Determine scope
+    if st.session_state.sel_province:
+        df_view = df[df[COL["province"]] == st.session_state.sel_province]
+        if st.session_state.sel_commune:
+            df_view = df_view[df_view[COL["commune"]] == st.session_state.sel_commune]
+    else:
+        df_view = df.copy()
+
+    # ── If institution selected → show detail
+    if st.session_state.selected_code:
+        code_sel = st.session_state.selected_code
+        row_sel  = df[df[COL["code"]] == code_sel]
+        if row_sel.empty:
+            st.warning("لم يُعثر على المؤسسة")
+        else:
+            row = row_sel.iloc[0]
+            nom_ar = str(row.get(COL["nom_ar"], ""))
+            nom_fr = str(row.get(COL["nom_fr"], ""))
+            cat    = row.get("_cat", "other")
+
+            if st.button("← رجوع إلى القائمة", key="back_btn"):
+                st.session_state.selected_code = None
+                st.rerun()
+
+            # Header
+            color_map = {"ibtidai":"#3b82f6","idadi":"#10b981","thanawi":"#8b5cf6","other":"#64748b"}
+            c = color_map.get(cat, "#64748b")
+            st.markdown(f"""
+            <div style="background:var(--surface);border:1px solid var(--border2);border-radius:20px;
+                        padding:28px 32px;margin-bottom:20px;border-right:4px solid {c}">
+              <div style="font-size:22px;font-weight:900;color:var(--text);margin-bottom:4px">{nom_ar}</div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:12px;font-style:italic">{nom_fr}</div>
+              <span class="chip {CAT_CHIP.get(cat,'chip-gray')}">{CAT_LABEL.get(cat,'')}</span>
+              <span class="chip chip-gray">{row.get(COL['province'],'')}</span>
+              <span class="chip chip-gray">{row.get(COL['commune'],'')}</span>
+              {'<span class="chip chip-gold">🌟 رائدة</span>' if str(row.get(COL["pioneer"],"")).strip() not in ["","0","Non","non"] else ''}
+              {'<span class="chip chip-red">⚠ مكتظة</span>' if row.get("_surch",False) else ''}
+            </div>
+            """, unsafe_allow_html=True)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                # Info
+                st.markdown('<div class="detail-box">', unsafe_allow_html=True)
+                st.markdown('<div class="detail-title">📋 معلومات عامة</div>', unsafe_allow_html=True)
+                rows_info = [
+                    ("رمز المؤسسة", row.get(COL["code"], "")),
+                    ("النوع", row.get(COL["scat"], "")),
+                    ("الوضعية", row.get(COL["statut"], "")),
+                    ("المالك", row.get(COL["proprio"], "")),
+                    ("المشغّل", row.get(COL["gestion"], "")),
+                    ("تاريخ البناء", row.get(COL["dt_constr"], "")),
+                    ("آخر تحديث", row.get(COL["dt_maj"], "")),
+                ]
+                for k, v in rows_info:
+                    if v:
+                        st.markdown(f'<div class="detail-row"><span class="detail-key">{k}</span><span class="detail-val">{v}</span></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                # Capacity
+                nc   = row.get("_nc", 0)
+                ns   = row.get("_ns", 0)
+                elev = row.get("_elev", 0)
+                taux = row.get("_taux", None)
+                dens = row.get("_density", None)
+
+                st.markdown('<div class="detail-box">', unsafe_allow_html=True)
+                st.markdown('<div class="detail-title">🏫 الطاقة الاستيعابية</div>', unsafe_allow_html=True)
+                for k, v in [("عدد التلاميذ", f"{elev:,}"), ("عدد الأقسام", nc), ("عدد الحجرات", ns)]:
+                    st.markdown(f'<div class="detail-row"><span class="detail-key">{k}</span><span class="detail-val">{v}</span></div>', unsafe_allow_html=True)
+                if taux is not None:
+                    color = "#ef4444" if taux > 1.9 else "#10b981"
+                    pct = min(taux / 2 * 100, 100)
+                    st.markdown(f"""
+                    <div class="stat-bar-wrap" style="margin-top:10px">
+                      <div class="stat-bar-label"><span>معدل الاشغال</span><span style="color:{color};font-weight:700">{taux}</span></div>
+                      <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct}%;background:{color}"></div></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                if dens is not None:
+                    dc = density_color(dens)
+                    pct2 = min(dens / 60 * 100, 100)
+                    st.markdown(f"""
+                    <div class="stat-bar-wrap">
+                      <div class="stat-bar-label"><span>كثافة القسم</span><span style="color:{dc};font-weight:700">{dens} تلميذ/قسم</span></div>
+                      <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct2}%;background:{dc}"></div></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with c2:
+                # Infrastructure
+                st.markdown('<div class="detail-box">', unsafe_allow_html=True)
+                st.markdown('<div class="detail-title">🏗️ البنية التحتية</div>', unsafe_allow_html=True)
+                infra_keys = [
+                    ("ملاعب رياضية", COL["sport"]),
+                    ("مراحيض", COL["latrines"]),
+                    ("مكاتب", COL["bureaux"]),
+                    ("ملحقات", COL["annexes"]),
+                    ("نزلاء داخليون", COL["internes"]),
+                    ("أسرّة", COL["lits"]),
+                ]
+                for label, col_key in infra_keys:
+                    v = si(row.get(col_key, 0))
+                    if v:
+                        st.markdown(f'<div class="detail-row"><span class="detail-key">{label}</span><span class="detail-val">{v:,}</span></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                # Social support
+                st.markdown('<div class="detail-box">', unsafe_allow_html=True)
+                st.markdown('<div class="detail-title">❤️ الدعم الاجتماعي</div>', unsafe_allow_html=True)
+                social_keys = [
+                    ("منحة كاملة", COL["b_complet"]),
+                    ("نصف منحة", COL["b_demi"]),
+                    ("مستفيدو الدعم التربوي", COL["sout_ben"]),
+                    ("ساعات الدعم", COL["sout_h"]),
+                    ("أيام الإطعام", COL["rest_j"]),
+                ]
+                for label, col_key in social_keys:
+                    v = si(row.get(col_key, 0))
+                    if v:
+                        st.markdown(f'<div class="detail-row"><span class="detail-key">{label}</span><span class="detail-val">{v:,}</span></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Map for single institution
+            lat = row.get("_lat", 0.0)
+            lon = row.get("_lon", 0.0)
+            if lat and lon:
+                st.markdown('<div class="detail-title" style="margin-top:10px">📍 الموقع الجغرافي</div>', unsafe_allow_html=True)
+                map_df = pd.DataFrame({"lat": [lat], "lon": [lon]})
+                st.map(map_df, zoom=13)
+
+    else:
+        # ── LIST VIEW
+        q = st.session_state.inst_query.strip().lower()
+        if q:
+            mask = (
+                df_view[COL["nom_ar"]].str.lower().str.contains(q, na=False) |
+                df_view[COL["nom_fr"]].str.lower().str.contains(q, na=False) |
+                df_view[COL["code"]].str.lower().str.contains(q, na=False)
+            )
+            df_show = df_view[mask]
+        else:
+            df_show = df_view
+
+        if not st.session_state.sel_province:
+            st.info("👈 اختر مديرية من القائمة الجانبية لعرض المؤسسات")
+        else:
+            scope_label = st.session_state.sel_commune or st.session_state.sel_province
+            st.markdown(f'<div class="section-hd">🏫 مؤسسات {scope_label} <span>{len(df_show)} مؤسسة</span></div>', unsafe_allow_html=True)
+
+            # Filter by type
+            fcols = st.columns(5)
+            cat_filter = fcols[0].selectbox("النوع", ["الكل","ابتدائية","إعدادية","تأهيلية"], label_visibility="collapsed", key="cat_f")
+            only_surch = fcols[1].checkbox("⚠ المكتظة فقط", key="surch_f")
+            only_pion  = fcols[2].checkbox("🌟 الرائدة فقط", key="pion_f")
+
+            cat_map_rev = {"ابتدائية":"ibtidai","إعدادية":"idadi","تأهيلية":"thanawi"}
+            if cat_filter != "الكل":
+                df_show = df_show[df_show["_cat"] == cat_map_rev.get(cat_filter,"")]
+            if only_surch:
+                df_show = df_show[df_show["_surch"]]
+            if only_pion:
+                df_show = df_show[df_show[COL["pioneer"]].apply(lambda x: str(x).strip() not in ["","0","Non","non"])]
+
+            st.markdown(f'<div style="font-size:12px;color:var(--muted);margin-bottom:14px">{len(df_show)} نتيجة</div>', unsafe_allow_html=True)
+
+            for _, row in df_show.head(50).iterrows():
+                code  = str(row.get(COL["code"], ""))
+                nm_ar = str(row.get(COL["nom_ar"], ""))
+                nm_fr = str(row.get(COL["nom_fr"], ""))
+                cat   = row.get("_cat", "other")
+                elev  = row.get("_elev", 0)
+                nc    = row.get("_nc", 0)
+                surch = row.get("_surch", False)
+
+                c1b, c2b = st.columns([6, 1])
+                with c1b:
+                    st.markdown(f"""
+                    <div class="inst-card {cat}">
+                      <div class="inst-name">{nm_ar}</div>
+                      <div class="inst-meta" style="margin-bottom:8px;font-style:italic">{nm_fr}</div>
+                      <span class="chip {CAT_CHIP.get(cat,'chip-gray')}">{CAT_LABEL.get(cat,'')}</span>
+                      <span class="chip chip-gray">{elev:,} تلميذ</span>
+                      <span class="chip chip-gray">{nc} قسم</span>
+                      {'<span class="chip chip-red">⚠ مكتظة</span>' if surch else ''}
+                      <span class="chip chip-gray" style="float:left;margin-top:2px;font-size:10px">{code}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with c2b:
+                    if st.button("عرض ←", key=f"view_{code}"):
+                        st.session_state.selected_code = code
+                        st.session_state.view_level    = "institution"
+                        st.rerun()
+
+
+# ──────────────────────────────────────────────────────
+#  TAB 2 — STATISTICS
+# ──────────────────────────────────────────────────────
+with tabs[1]:
+    if st.session_state.sel_province:
+        df_stat = df[df[COL["province"]] == st.session_state.sel_province]
+        if st.session_state.sel_commune:
+            df_stat = df_stat[df_stat[COL["commune"]] == st.session_state.sel_commune]
+    else:
+        df_stat = df.copy()
+
+    scope_lbl = st.session_state.sel_commune or st.session_state.sel_province or "الوطني"
+    st.markdown(f'<div class="section-hd">📊 إحصائيات — {scope_lbl}</div>', unsafe_allow_html=True)
+
+    # KPIs
+    kc = st.columns(4)
+    kc[0].metric("إجمالي المؤسسات", f"{len(df_stat):,}")
+    kc[1].metric("إجمالي التلاميذ", f"{int(df_stat['_elev'].sum()):,}")
+    kc[2].metric("متوسط التلاميذ/مؤسسة", f"{int(df_stat['_elev'].mean()) if len(df_stat) else 0:,}")
+    kc[3].metric("المؤسسات المكتظة", f"{int(df_stat['_surch'].sum())} ({round(df_stat['_surch'].mean()*100,1) if len(df_stat) else 0}%)")
+
+    st.markdown("---")
+    sc1, sc2 = st.columns(2)
+
+    with sc1:
+        st.markdown('<div class="section-hd">توزيع المؤسسات حسب النوع</div>', unsafe_allow_html=True)
+        for cat_k, cat_l in CAT_LABEL.items():
+            cnt   = int((df_stat["_cat"] == cat_k).sum())
+            pct   = round(cnt / len(df_stat) * 100, 1) if len(df_stat) else 0
+            color = CAT_COLOR.get(cat_k, "#64748b")
+            st.markdown(f"""
+            <div class="stat-bar-wrap">
+              <div class="stat-bar-label"><span>{cat_l}</span><span>{cnt:,} ({pct}%)</span></div>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct}%;background:{color}"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with sc2:
+        st.markdown('<div class="section-hd">كثافة الأقسام</div>', unsafe_allow_html=True)
+        dens_data = df_stat["_density"].dropna()
+        if not dens_data.empty:
+            low  = int((dens_data <= 30).sum())
+            med  = int(((dens_data > 30) & (dens_data <= 40)).sum())
+            high = int((dens_data > 40).sum())
+            total_d = low + med + high
+            for label, cnt, color in [("خضر (≤30)", low, "#10b981"), ("برتقالي (31-40)", med, "#f97316"), ("أحمر (>40)", high, "#ef4444")]:
+                pct = round(cnt / total_d * 100, 1) if total_d else 0
+                st.markdown(f"""
+                <div class="stat-bar-wrap">
+                  <div class="stat-bar-label"><span>{label}</span><span>{cnt:,} ({pct}%)</span></div>
+                  <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct}%;background:{color}"></div></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Province breakdown (only in global view)
+    if not st.session_state.sel_province:
+        st.markdown('<div class="section-hd">📍 توزيع حسب الإقليم / المديرية</div>', unsafe_allow_html=True)
+        prov_counts = df_stat.groupby(COL["province"]).size().sort_values(ascending=False).head(15)
+        max_c = prov_counts.max()
+        for prov, cnt in prov_counts.items():
+            pct = round(cnt / max_c * 100, 1)
+            st.markdown(f"""
+            <div class="stat-bar-wrap">
+              <div class="stat-bar-label"><span>{prov}</span><span>{cnt:,}</span></div>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct}%;background:var(--gold)"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Commune breakdown (if province selected)
+    if st.session_state.sel_province and not st.session_state.sel_commune:
+        st.markdown('<div class="section-hd">🏘️ توزيع حسب الجماعة</div>', unsafe_allow_html=True)
+        comm_counts = df_stat.groupby(COL["commune"]).size().sort_values(ascending=False)
+        max_c = comm_counts.max()
+        for comm, cnt in comm_counts.items():
+            pct = round(cnt / max_c * 100, 1)
+            st.markdown(f"""
+            <div class="stat-bar-wrap">
+              <div class="stat-bar-label"><span>{comm}</span><span>{cnt:,}</span></div>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct}%;background:#3b82f6"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+# ──────────────────────────────────────────────────────
+#  TAB 3 — MAP
+# ──────────────────────────────────────────────────────
+with tabs[2]:
+    st.markdown('<div class="section-hd">🗺️ الخريطة التفاعلية</div>', unsafe_allow_html=True)
+
+    if st.session_state.sel_province:
+        df_map = df[df[COL["province"]] == st.session_state.sel_province]
+        if st.session_state.sel_commune:
+            df_map = df_map[df_map[COL["commune"]] == st.session_state.sel_commune]
+    else:
+        df_map = df.copy()
+
+    df_map_valid = df_map[(df_map["_lat"] != 0) & (df_map["_lon"] != 0)][["_lat", "_lon", COL["nom_ar"], "_cat", "_elev"]].copy()
+    df_map_valid.columns = ["lat", "lon", "nom", "cat", "elev"]
+
+    if df_map_valid.empty:
+        st.warning("لا توجد بيانات جغرافية لهذا النطاق")
+    else:
+        st.info(f"📍 عرض {len(df_map_valid):,} مؤسسة على الخريطة")
+        st.map(df_map_valid[["lat", "lon"]], zoom=8)
+
+        # Stats below map
+        mc = st.columns(3)
+        mc[0].metric("مؤسسات بإحداثيات", f"{len(df_map_valid):,}")
+        mc[1].metric("بدون إحداثيات", f"{len(df_map) - len(df_map_valid):,}")
+        mc[2].metric("نسبة التغطية", f"{round(len(df_map_valid)/len(df_map)*100,1) if len(df_map) else 0}%")
+
+
+# ──────────────────────────────────────────────────────
+#  TAB 4 — ADMIN (admin only)
+# ──────────────────────────────────────────────────────
+if is_admin and len(tabs) > 3:
+    with tabs[3]:
+        st.markdown('<div class="section-hd">⚙️ لوحة المسؤول</div>', unsafe_allow_html=True)
+
+        adm_tab1, adm_tab2, adm_tab3 = st.tabs(["👥 طلبات الحسابات", "🔑 المستخدمون", "🗑️ حذف مستخدم"])
+
+        # ── Pending requests
         with adm_tab1:
             pending = get_pending()
             if not pending:
                 st.success("✅ لا توجد طلبات معلقة")
             else:
-                st.markdown(f'<div style="font-size:12px;color:var(--muted);margin-bottom:10px">{len(pending)} طلب في الانتظار</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:13px;color:var(--muted);margin-bottom:16px">{len(pending)} طلب في الانتظار</div>', unsafe_allow_html=True)
                 for uname_p, info in list(pending.items()):
                     email = info.get("email", "")
-                    st.markdown(f'<div style="padding:8px 0;border-bottom:1px solid var(--border)"><strong style="color:var(--text);font-size:13px">{uname_p}</strong><div style="font-size:11px;color:var(--muted)">{email}</div></div>', unsafe_allow_html=True)
-                    ca, cb = st.columns(2)
-                    if ca.button("✅ قبول", key=f"acc_{uname_p}"):
+                    c1a, c2a, c3a = st.columns([3, 1, 1])
+                    c1a.markdown(f'<div style="padding:8px 0"><strong style="color:var(--text)">{uname_p}</strong><div style="font-size:12px;color:var(--muted)">{email}</div></div>', unsafe_allow_html=True)
+                    if c2a.button("✅ قبول", key=f"acc_{uname_p}"):
                         users = load_json(USERS_FILE, {})
                         users[uname_p] = info["password"]
                         save_json(USERS_FILE, users)
@@ -338,6 +747,31 @@ if is_admin and st.session_state.show_admin_panel:
                         save_json(PENDING_FILE, pending)
                         st.success(f"تم قبول {uname_p}")
                         st.rerun()
-                    if cb.button("❌ رفض", key=f"rej_{uname_p}"):
+                    if c3a.button("❌ رفض", key=f"rej_{uname_p}"):
                         pending.pop(uname_p)
-    
+                        save_json(PENDING_FILE, pending)
+                        st.warning(f"تم رفض {uname_p}")
+                        st.rerun()
+
+        # ── All users
+        with adm_tab2:
+            users_all = get_users()
+            st.markdown(f'<div style="font-size:13px;color:var(--muted);margin-bottom:16px">{len(users_all)} مستخدم مسجّل</div>', unsafe_allow_html=True)
+            for u in users_all:
+                badge = "chip-gold" if u == "admin" else ("chip-blue" if u == "inspecteur" else "chip-green")
+                role  = "مسؤول" if u == "admin" else ("مفتش" if u == "inspecteur" else "مستخدم")
+                st.markdown(f'<div style="padding:10px 0;border-bottom:1px solid var(--border)"><span class="chip {badge}">{role}</span> <strong style="color:var(--text)">{u}</strong></div>', unsafe_allow_html=True)
+
+        # ── Delete user
+        with adm_tab3:
+            users_saved = load_json(USERS_FILE, {})
+            deletable   = [u for u in users_saved if u not in ("admin", "inspecteur")]
+            if not deletable:
+                st.info("لا يوجد مستخدمون قابلون للحذف")
+            else:
+                del_u = st.selectbox("اختر المستخدم", deletable, key="del_user_sel")
+                if st.button("🗑️ حذف", key="del_user_btn", type="primary"):
+                    users_saved.pop(del_u, None)
+                    save_json(USERS_FILE, users_saved)
+                    st.success(f"تم حذف المستخدم: {del_u}")
+                    st.rerun()
