@@ -71,12 +71,10 @@ html, body, [class*="css"], .stApp {
   direction: rtl;
 }
 
-/* scrollbar */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 10px; }
 
-/* sidebar */
 [data-testid="stSidebar"] {
   background: var(--surface) !important;
   border-left: 1px solid var(--border2) !important;
@@ -84,7 +82,6 @@ html, body, [class*="css"], .stApp {
 }
 [data-testid="stSidebar"] > div { padding: 0 !important; }
 
-/* buttons */
 .stButton > button {
   background: transparent !important;
   border: 1px solid var(--border2) !important;
@@ -115,7 +112,6 @@ html, body, [class*="css"], .stApp {
   color: #080c14 !important;
 }
 
-/* inputs */
 .stTextInput > div > div > input,
 .stSelectbox > div > div {
   background: var(--surface2) !important;
@@ -130,7 +126,6 @@ html, body, [class*="css"], .stApp {
   box-shadow: 0 0 0 3px rgba(201,168,76,0.15) !important;
 }
 
-/* radio */
 .stRadio > div { gap: 6px !important; }
 .stRadio > div > label {
   background: var(--surface2) !important;
@@ -144,7 +139,6 @@ html, body, [class*="css"], .stApp {
 }
 .stRadio > div > label:hover { border-color: var(--gold) !important; color: var(--gold) !important; }
 
-/* tabs */
 .stTabs [data-baseweb="tab-list"] {
   background: var(--surface) !important;
   border-radius: 12px !important;
@@ -169,7 +163,6 @@ html, body, [class*="css"], .stApp {
 }
 .stTabs [data-baseweb="tab-panel"] { padding-top: 20px !important; }
 
-/* metric */
 [data-testid="stMetric"] {
   background: var(--surface2) !important;
   border: 1px solid var(--border) !important;
@@ -179,17 +172,12 @@ html, body, [class*="css"], .stApp {
 [data-testid="stMetricLabel"] { color: var(--muted) !important; font-family: 'Tajawal', sans-serif !important; font-size: 12px !important; }
 [data-testid="stMetricValue"] { color: var(--text) !important; font-family: 'Tajawal', sans-serif !important; font-weight: 700 !important; }
 
-/* alerts */
 .stAlert { border-radius: 12px !important; font-family: 'Tajawal', sans-serif !important; }
-
-/* caption */
 .stCaption { color: var(--muted) !important; font-family: 'Tajawal', sans-serif !important; }
 
-/* hide streamlit chrome */
 #MainMenu, footer, header { visibility: hidden; }
 .block-container { padding: 0 24px 40px !important; max-width: 100% !important; }
 
-/* ── custom components ── */
 .hero-bar {
   background: linear-gradient(135deg, #0d1320 0%, #111827 50%, #0d1320 100%);
   border: 1px solid var(--border2);
@@ -351,6 +339,12 @@ html, body, [class*="css"], .stApp {
   border-radius:20px; padding:5px 14px;
   font-size:12px; font-weight:700; white-space:nowrap;
 }
+.dist-pill-red {
+  background: rgba(239,68,68,.15); color:#f87171;
+  border:1px solid rgba(239,68,68,.3);
+  border-radius:20px; padding:5px 14px;
+  font-size:12px; font-weight:700; white-space:nowrap;
+}
 
 .surch-card {
   background: var(--surface2); border: 1px solid rgba(239,68,68,.2);
@@ -396,7 +390,6 @@ html, body, [class*="css"], .stApp {
 .stat-kpi-v { font-size:26px; font-weight:900; }
 .stat-kpi-l { font-size:11px; color:var(--muted); font-weight:600; margin-top:3px; }
 
-/* sidebar logo */
 .sb-logo {
   text-align:center; padding:30px 20px 20px;
   border-bottom:1px solid var(--border); margin-bottom:20px;
@@ -417,7 +410,6 @@ html, body, [class*="css"], .stApp {
   margin-bottom:10px; padding: 0 4px;
 }
 
-/* login */
 .login-wrap {
   min-height:100vh; display:flex; align-items:center; justify-content:center;
   background: var(--bg);
@@ -446,14 +438,58 @@ html, body, [class*="css"], .stApp {
 .empty-title { font-size:20px; font-weight:800; color:var(--text); margin-bottom:8px; }
 .empty-sub { font-size:14px; }
 
-/* badge */
 .badge {
   display:inline-flex; align-items:center; justify-content:center;
   width:20px; height:20px; background:var(--red); color:white;
   border-radius:50%; font-size:10px; font-weight:900; margin-right:6px;
 }
 
-/* inst list buttons */
+/* ── LIVE SEARCH DROPDOWN ── */
+.live-search-wrap { position: relative; padding: 0 14px; margin-bottom: 6px; }
+.live-search-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'Tajawal', sans-serif;
+  font-size: 13px;
+  padding: 9px 14px;
+  direction: rtl;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.live-search-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.15);
+}
+.live-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 14px; right: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  z-index: 9999;
+  max-height: 320px;
+  overflow-y: auto;
+  direction: rtl;
+}
+.live-search-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.live-search-item:last-child { border-bottom: none; }
+.live-search-item:hover { background: rgba(201,168,76,.1); }
+.live-search-item.active { background: rgba(201,168,76,.18); }
+.ls-name { font-size: 12px; font-weight: 700; color: var(--text); }
+.ls-sub  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.ls-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+
 div[data-testid="stSidebar"] .stButton > button {
   text-align: right !important;
   justify-content: flex-start !important;
@@ -540,6 +576,7 @@ def categorize(row):
 
 CAT_LABEL = {"ibtidai":"ابتدائية","idadi":"إعدادية","thanawi":"تأهيلية","other":"أخرى"}
 CAT_CHIP  = {"ibtidai":"chip-blue","idadi":"chip-green","thanawi":"chip-purple","other":"chip-gray"}
+CAT_COLOR = {"ibtidai":"#3b82f6","idadi":"#10b981","thanawi":"#8b5cf6","other":"#64748b"}
 
 # ══════════════════════════════════════════════════════
 #  AUTH
@@ -628,10 +665,6 @@ pending  = get_pending()
 # ══════════════════════════════════════════════════════
 #  HERO BAR
 # ══════════════════════════════════════════════════════
-badge_html = ""
-if is_admin and pending:
-    badge_html = f'<span class="badge">{len(pending)}</span>'
-
 uname = st.session_state.get("username","")
 admin_crown = " 👑" if is_admin else ""
 
@@ -687,25 +720,9 @@ st.markdown(f"""
 # ══════════════════════════════════════════════════════
 for _k, _v in [("sel_province", None), ("sel_commune", None),
                 ("inst_query", ""), ("selected_code", None),
-                ("view_level", "global")]:
+                ("view_level", "global"), ("live_search_query", "")]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
-
-# helpers to reset cascade
-def reset_from_province():
-    st.session_state.sel_commune  = None
-    st.session_state.inst_query   = ""
-    st.session_state.selected_code= None
-    st.session_state.view_level   = "province"
-
-def reset_from_commune():
-    st.session_state.inst_query   = ""
-    st.session_state.selected_code= None
-    st.session_state.view_level   = "commune"
-
-def reset_from_inst():
-    st.session_state.selected_code= None
-    st.session_state.view_level   = "inst"
 
 # ══════════════════════════════════════════════════════
 #  SIDEBAR
@@ -742,6 +759,7 @@ with st.sidebar:
             st.session_state.inst_query    = ""
             st.session_state.selected_code = None
             st.session_state.view_level    = "global"
+            st.session_state.live_search_query = ""
         else:
             if new_p != st.session_state.sel_province:
                 st.session_state.sel_province  = new_p
@@ -749,6 +767,7 @@ with st.sidebar:
                 st.session_state.inst_query    = ""
                 st.session_state.selected_code = None
                 st.session_state.view_level    = "province"
+                st.session_state.live_search_query = ""
 
     cur_prov_idx = (prov_options.index(st.session_state.sel_province)
                     if st.session_state.sel_province in prov_options else 0)
@@ -757,7 +776,7 @@ with st.sidebar:
                  label_visibility="collapsed", key="_sb_prov",
                  on_change=_on_prov_change)
 
-    # ── STEP 2 : Commune (only if province chosen) ─────
+    # ── STEP 2 : Commune ──────────────────────────────
     if st.session_state.sel_province:
         df_prov   = df[df[COL["province"]] == st.session_state.sel_province]
         all_comm  = sorted(df_prov[COL["commune"]].dropna().unique().tolist())
@@ -781,12 +800,14 @@ with st.sidebar:
                 st.session_state.inst_query    = ""
                 st.session_state.selected_code = None
                 st.session_state.view_level    = "province"
+                st.session_state.live_search_query = ""
             else:
                 if new_c != st.session_state.sel_commune:
                     st.session_state.sel_commune   = new_c
                     st.session_state.inst_query    = ""
                     st.session_state.selected_code = None
                     st.session_state.view_level    = "commune"
+                    st.session_state.live_search_query = ""
 
         cur_comm_idx = (comm_opts.index(st.session_state.sel_commune)
                         if st.session_state.sel_commune in comm_opts else 0)
@@ -795,7 +816,7 @@ with st.sidebar:
                      label_visibility="collapsed", key="_sb_comm",
                      on_change=_on_comm_change)
 
-    # ── STEP 3 : Institution search (live filter) ──────
+    # ── STEP 3 : LIVE SEARCH (JavaScript dropdown) ────
     if st.session_state.sel_province:
         df_scope = df[df[COL["province"]] == st.session_state.sel_province]
         if st.session_state.sel_commune:
@@ -807,22 +828,186 @@ with st.sidebar:
                text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px">
             <span style="background:var(--gold);color:#080c14;border-radius:50%;width:16px;height:16px;
                  display:inline-flex;align-items:center;justify-content:center;font-size:9px">3</span>
-            البحث عن المؤسسة
+            البحث الفوري عن المؤسسة
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-        def _on_inst_query():
-            st.session_state.inst_query   = st.session_state._inst_q
-            st.session_state.selected_code= None
-            st.session_state.view_level   = "province" if not st.session_state.sel_commune else "commune"
+        # Build JS data for live search
+        inst_data = []
+        for _, r3 in df_scope.iterrows():
+            inst_data.append({
+                "code": r3[COL["code"]],
+                "nom_fr": str(r3.get(COL["nom_fr"], "") or ""),
+                "nom_ar": str(r3.get(COL["nom_ar"], "") or ""),
+                "cat": r3["_cat"],
+                "cat_label": CAT_LABEL.get(r3["_cat"], ""),
+                "commune": str(r3.get(COL["commune"], "") or ""),
+                "surch": bool(r3["_surch"]),
+                "elev": int(r3["_elev"]),
+            })
 
-        st.text_input("", placeholder="اسم أو كود CRISE...",
-                      label_visibility="collapsed",
-                      key="_inst_q",
-                      value=st.session_state.inst_query,
-                      on_change=_on_inst_query)
+        import json as _json
+        inst_json = _json.dumps(inst_data, ensure_ascii=False)
 
+        # Color map for categories
+        cat_colors = _json.dumps({"ibtidai":"#3b82f6","idadi":"#10b981","thanawi":"#8b5cf6","other":"#64748b"})
+
+        live_search_html = f"""
+<div style="padding:0 14px;margin-bottom:8px;position:relative;z-index:1000">
+  <input
+    type="text"
+    id="liveSearchInput"
+    placeholder="اكتب اسم المؤسسة أو كود CRISE..."
+    oninput="filterInstitutions(this.value)"
+    onfocus="showDropdown()"
+    style="
+      width:100%;
+      background:#111827;
+      border:1px solid rgba(255,255,255,0.13);
+      border-radius:10px;
+      color:#e2e8f0;
+      font-family:'Tajawal',sans-serif;
+      font-size:13px;
+      padding:10px 14px;
+      direction:rtl;
+      outline:none;
+      box-sizing:border-box;
+    "
+  />
+  <div id="liveDropdown" style="
+    display:none;
+    position:absolute;
+    top:calc(100% + 4px);
+    left:0; right:0;
+    background:#0d1320;
+    border:1px solid rgba(255,255,255,0.13);
+    border-radius:12px;
+    box-shadow:0 20px 60px rgba(0,0,0,.7);
+    z-index:9999;
+    max-height:300px;
+    overflow-y:auto;
+    direction:rtl;
+  "></div>
+</div>
+
+<script>
+(function() {{
+  var ALL = {inst_json};
+  var CAT_COLORS = {cat_colors};
+  var current = "";
+  var dropdown = document.getElementById('liveDropdown');
+  var input    = document.getElementById('liveSearchInput');
+
+  function normalize(s) {{
+    return (s || "").toLowerCase().trim();
+  }}
+
+  function highlight(text, query) {{
+    if (!query) return text;
+    var idx = normalize(text).indexOf(normalize(query));
+    if (idx < 0) return text;
+    return text.slice(0, idx)
+      + '<span style="color:#f0d080;font-weight:900">' + text.slice(idx, idx + query.length) + '</span>'
+      + text.slice(idx + query.length);
+  }}
+
+  window.filterInstitutions = function(q) {{
+    current = q;
+    if (q.length === 0) {{
+      renderItems(ALL.slice(0, 50));
+    }} else {{
+      var nq = normalize(q);
+      var filtered = ALL.filter(function(r) {{
+        return normalize(r.nom_fr).includes(nq)
+            || normalize(r.nom_ar).includes(nq)
+            || normalize(r.code).includes(nq);
+      }}).slice(0, 40);
+      renderItems(filtered);
+    }}
+    showDropdown();
+  }};
+
+  window.showDropdown = function() {{
+    if (ALL.length > 0) {{
+      if (!dropdown.innerHTML || current === "") {{
+        renderItems(ALL.slice(0, 50));
+      }}
+      dropdown.style.display = 'block';
+    }}
+  }};
+
+  function renderItems(items) {{
+    if (items.length === 0) {{
+      dropdown.innerHTML = '<div style="padding:14px;text-align:center;color:#64748b;font-size:12px">لا توجد نتائج</div>';
+      return;
+    }}
+    var html = "";
+    items.forEach(function(r) {{
+      var color = CAT_COLORS[r.cat] || "#64748b";
+      var warn  = r.surch ? "⚠️ " : "";
+      var name  = highlight(r.nom_fr || r.code, current);
+      html += '<div class="ls-item" onclick="selectInstitution(\'' + r.code.replace(/'/g, "\\'") + '\')" style="'
+        + 'padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.06);'
+        + 'display:flex;justify-content:space-between;align-items:center;'
+        + 'transition:background .15s;'
+        + '" onmouseover="this.style.background=\'rgba(201,168,76,.1)\'" onmouseout="this.style.background=\'\'">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#e2e8f0">' + warn + name + '</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px">' + r.code + ' · ' + r.commune + '</div>
+          </div>
+          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;'
+        + 'background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44">'
+        + r.cat_label + '</span>
+        </div>';
+    }});
+    dropdown.innerHTML = html;
+  }}
+
+  window.selectInstitution = function(code) {{
+    dropdown.style.display = 'none';
+    // Send code via Streamlit query param trick using a hidden input
+    var hidden = document.getElementById('_selected_code_hidden');
+    if (!hidden) {{
+      hidden = document.createElement('input');
+      hidden.id = '_selected_code_hidden';
+      hidden.type = 'hidden';
+      document.body.appendChild(hidden);
+    }}
+    hidden.value = code;
+    // Update the visible input with institution name
+    var found = ALL.find(function(r) {{ return r.code === code; }});
+    if (found) {{ input.value = found.nom_fr || code; }}
+    // Trigger Streamlit rerun via a workaround: update a text_input
+    var stInput = window.parent.document.querySelector('input[data-testid="stTextInput"][aria-label="_live_select"]');
+    if (stInput) {{
+      var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      nativeInputValueSetter.call(stInput, code);
+      stInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    }}
+  }};
+
+  // Close on outside click
+  document.addEventListener('click', function(e) {{
+    if (!dropdown.contains(e.target) && e.target !== input) {{
+      dropdown.style.display = 'none';
+    }}
+  }});
+}})();
+</script>
+"""
+        st.components.v1.html(live_search_html, height=60, scrolling=False)
+
+        # Hidden Streamlit input that receives the selected code
+        selected_via_live = st.text_input(
+            "_live_select", value="", label_visibility="collapsed", key="_live_select_input"
+        )
+        if selected_via_live and selected_via_live != st.session_state.selected_code:
+            st.session_state.selected_code = selected_via_live
+            st.session_state.view_level    = "inst"
+            st.rerun()
+
+        # Fallback: also show old-style list filtered by query
         q3 = st.session_state.inst_query.strip().lower()
         if q3:
             mask3 = (
@@ -832,17 +1017,9 @@ with st.sidebar:
             )
             results3 = df_scope[mask3].head(40)
         else:
-            results3 = df_scope.head(60)
+            results3 = df_scope.head(0)  # hide default list; live search handles it
 
-        n_res = len(results3)
-        st.markdown(f"""
-        <div style="padding:0 14px 6px;font-size:10px;color:var(--muted);font-weight:600">
-          {n_res} مؤسسة
-        </div>""", unsafe_allow_html=True)
-
-        if results3.empty:
-            st.markdown('<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">لا توجد نتائج</div>', unsafe_allow_html=True)
-        else:
+        if not results3.empty:
             for _, r3 in results3.iterrows():
                 lbl3  = r3.get(COL["nom_fr"],"") or r3.get(COL["code"],"")
                 cat3l = CAT_LABEL.get(r3["_cat"],"")
@@ -871,8 +1048,6 @@ with st.sidebar:
         st.session_state.logged_in = False
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
-
-# action buttons flags resolved above in sidebar
 
 # ══════════════════════════════════════════════════════
 #  ADMIN: PENDING
@@ -1002,9 +1177,8 @@ if show_global:
             </div>""", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Statut
-    st.markdown('<div class="chart-card"><div class="chart-title">ℹ️ الوضع الإداري</div>', unsafe_allow_html=True)
     stat_c = df.groupby(COL["statut"]).size().sort_values(ascending=False)
+    st.markdown('<div class="chart-card"><div class="chart-title">ℹ️ الوضع الإداري</div>', unsafe_allow_html=True)
     stat_cols = st.columns(len(stat_c))
     colors6 = ["#10b981","#ef4444","#f97316","#0891b2","#8b5cf6","#64748b"]
     for i,(stat,cnt) in enumerate(stat_c.items()):
@@ -1049,7 +1223,7 @@ if show_surch:
     st.stop()
 
 # ══════════════════════════════════════════════════════
-#  STATS HELPER (reusable for province / commune)
+#  STATS HELPER
 # ══════════════════════════════════════════════════════
 def show_scope_stats(df_s, scope_name, scope_icon=""):
     tot_s   = len(df_s)
@@ -1144,11 +1318,10 @@ def show_scope_stats(df_s, scope_name, scope_icon=""):
             </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════
-#  ROUTING: province / commune / inst / global
+#  ROUTING
 # ══════════════════════════════════════════════════════
 selected_code = st.session_state.selected_code
 
-# If institution selected → go straight to detail, skip scope stats
 if not selected_code:
     sel_prov = st.session_state.sel_province
     sel_comm = st.session_state.sel_commune
@@ -1299,9 +1472,9 @@ var sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_
 var osm=L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png',{{attribution:'© OSM'}});
 sat.addTo(map);
 L.control.layers({{"خريطة":osm,"صورة جوية":sat}}).addTo(map);
-var icon=L.divIcon({{html:'<div style="width:20px;height:20px;background:#c9a84c;border-radius:50%;border:3px solid #080c14;box-shadow:0 0 12px rgba(201,168,76,.8)"></div>',iconSize:[20,20],iconAnchor:[10,10]}});
+var icon=L.divIcon({{html:'<div style="width:22px;height:22px;background:#ef4444;border-radius:50%;border:3px solid #fff;box-shadow:0 0 16px rgba(239,68,68,.9),0 0 4px rgba(0,0,0,.5)"></div>',iconSize:[22,22],iconAnchor:[11,11]}});
 L.marker([{lat3},{lon3}],{{icon:icon}}).addTo(map)
-  .bindPopup('<b style="color:#c9a84c">{nom_fr3}</b><br><span style="font-size:12px;color:#94a3b8">{selected_code}</span><br><span style="font-size:11px;color:#64748b">{lat3:.5f}, {lon3:.5f}</span>')
+  .bindPopup('<b style="color:#ef4444">{nom_fr3}</b><br><span style="font-size:12px;color:#94a3b8">{selected_code}</span><br><span style="font-size:11px;color:#64748b">{lat3:.5f}, {lon3:.5f}</span>')
   .openPopup();
 </script></body></html>"""
         st.components.v1.html(leaflet_html, height=440)
@@ -1312,52 +1485,140 @@ L.marker([{lat3},{lon3}],{{icon:icon}}).addTo(map)
     else:
         st.warning("الإحداثيات غير متوفرة لهذه المؤسسة")
 
-# ── TAB 3 ─────────────────────────────────────────────
+# ── TAB 3 : NEARBY — RED MARKER + RAY LINES ≤2km ─────
 with tab3:
     def show_nearby(target_cat, label):
         if not commune3:
             st.warning("الجماعة غير محددة"); return
         if not (lat3 and lon3):
             st.warning("الإحداثيات غير متوفرة"); return
-        nb = df[(df["_cat"]==target_cat)&(df[COL["commune"]]==commune3)&(df[COL["code"]]!=selected_code)].copy()
-        nb = nb[nb["_lat"]!=0].copy()
-        nb["_dist"]=nb.apply(lambda r2: haversine(lat3,lon3,r2["_lat"],r2["_lon"]),axis=1)
-        nb = nb.sort_values("_dist").head(10)
+
+        # All institutions of target category (not self)
+        nb_all = df[(df["_cat"]==target_cat) & (df[COL["code"]]!=selected_code)].copy()
+        nb_all = nb_all[nb_all["_lat"]!=0].copy()
+        nb_all["_dist"] = nb_all.apply(lambda r2: haversine(lat3,lon3,r2["_lat"],r2["_lon"]), axis=1)
+        nb_all = nb_all.sort_values("_dist")
+
+        # Commune-level for list display
+        nb_comm = nb_all[nb_all[COL["commune"]]==commune3].head(10)
+
+        # ≤2km for ray lines (across all communes)
+        nb_2km = nb_all[nb_all["_dist"] <= 2.0].head(20)
+
         st.markdown(f'<div class="section-hd">🏘️ {label}</div>', unsafe_allow_html=True)
-        if nb.empty:
+
+        # Legend / info
+        n_2km = len(nb_2km)
+        st.markdown(f"""
+        <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+          <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:10px 16px;font-size:12px;color:#f87171;font-weight:700">
+            🔴 المؤسسة الحالية
+          </div>
+          <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:10px;padding:10px 16px;font-size:12px;color:#60a5fa;font-weight:700">
+            🔵 مؤسسات الجماعة
+          </div>
+          <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:10px;padding:10px 16px;font-size:12px;color:#34d399;font-weight:700">
+            ━ خطوط الإشعاع (≤ 2 كم): {n_2km} مؤسسة
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if nb_comm.empty:
             st.info("لا توجد مؤسسات مطابقة في نفس الجماعة")
         else:
-            for _,nr in nb.iterrows():
-                nm4  = nr.get(COL["nom_fr"],"") or nr.get(COL["code"],"")
-                cd4  = nr.get(COL["code"],"")
-                dist4= nr["_dist"]
-                elev4= nr["_elev"]
-                nc4  = nr["_nc"]
-                sw   = "⚠️ " if nr["_surch"] else ""
+            for _,nr in nb_comm.iterrows():
+                nm4   = nr.get(COL["nom_fr"],"") or nr.get(COL["code"],"")
+                cd4   = nr.get(COL["code"],"")
+                dist4 = nr["_dist"]
+                elev4 = nr["_elev"]
+                nc4   = nr["_nc"]
+                sw    = "⚠️ " if nr["_surch"] else ""
+                # Red pill if within 2km
+                pill_cls = "dist-pill-red" if dist4 <= 2.0 else "dist-pill"
+                ray_icon = " ✦" if dist4 <= 2.0 else ""
                 st.markdown(f"""
                 <div class="nearby-card">
                   <div>
-                    <div class="nearby-name">{sw}{nm4}</div>
-                    <div class="nearby-sub">{cd4} · {elev4:,} تلميذ · {nc4} قسم</div>
+                    <div class="nearby-name">{sw}{nm4}{ray_icon}</div>
+                    <div class="nearby-sub">{cd4} · {int(elev4):,} تلميذ · {nc4} قسم</div>
                   </div>
-                  <span class="dist-pill">{dist4} كم</span>
+                  <span class="{pill_cls}">{dist4} كم</span>
                 </div>""", unsafe_allow_html=True)
-            # Mini map
-            pts=[{"lat":lat3,"lon":lon3,"n":nom_fr3,"m":True}]+[{"lat":r2["_lat"],"lon":r2["_lon"],"n":r2.get(COL["nom_fr"],"") or r2.get(COL["code"],""),"m":False} for _,r2 in nb.iterrows()]
-            mjs="".join([f"""L.circleMarker([{p['lat']},{p['lon']}],{{radius:{'10' if p['m'] else '7'},color:'{"#c9a84c" if p['m'] else "#3b82f6"}',fillColor:'{"#c9a84c" if p['m'] else "#3b82f6"}',fillOpacity:.85,weight:2}}).addTo(map).bindPopup('<b>{p["n"]}</b>');""" for p in pts])
-            mmap=f"""<!DOCTYPE html><html><head>
+
+        # ── MAP with red marker + ray lines ──────────────
+        # Build JS for all points on map
+        # Current institution = red
+        # Nearby in commune = blue circles
+        # 2km ray lines = green polylines
+
+        pts_js = []
+        # Current institution
+        pts_js.append(f"""
+var mainIcon = L.divIcon({{
+  html: '<div style="width:24px;height:24px;background:#ef4444;border-radius:50%;border:3px solid #fff;box-shadow:0 0 20px rgba(239,68,68,1),0 0 6px rgba(0,0,0,.5);"></div>',
+  iconSize:[24,24], iconAnchor:[12,12]
+}});
+L.marker([{lat3},{lon3}], {{icon:mainIcon}}).addTo(map)
+  .bindPopup('<b style="color:#ef4444">🔴 {nom_fr3}</b><br><span style="font-size:11px;color:#94a3b8">{selected_code}</span>');
+""")
+
+        # Ray lines for ≤2km
+        for _, nr2 in nb_2km.iterrows():
+            lat2 = nr2["_lat"]
+            lon2 = nr2["_lon"]
+            nm2  = (nr2.get(COL["nom_fr"],"") or nr2.get(COL["code"],"")).replace("'", "\\'")
+            dist2= nr2["_dist"]
+            pts_js.append(f"""
+L.polyline([[{lat3},{lon3}],[{lat2},{lon2}]], {{
+  color:'#10b981', weight:2, opacity:0.75,
+  dashArray:'6,4'
+}}).addTo(map);
+""")
+
+        # All commune points as blue circles
+        for _, nr2 in nb_comm.iterrows():
+            lat2  = nr2["_lat"]
+            lon2  = nr2["_lon"]
+            nm2   = (nr2.get(COL["nom_fr"],"") or nr2.get(COL["code"],"")).replace("'", "\\'")
+            dist2 = nr2["_dist"]
+            color = "#ef4444" if dist2 <= 2.0 else "#3b82f6"
+            radius= 9 if dist2 <= 2.0 else 7
+            pts_js.append(f"""
+L.circleMarker([{lat2},{lon2}], {{
+  radius:{radius}, color:'{color}', fillColor:'{color}',
+  fillOpacity:0.85, weight:2
+}}).addTo(map).bindPopup('<b>{nm2}</b><br><span style="font-size:11px;color:#94a3b8">{dist2} كم</span>');
+""")
+
+        all_pts = [[lat3, lon3]] + [[r2["_lat"], r2["_lon"]] for _, r2 in nb_comm.iterrows() if r2["_lat"] and r2["_lon"]]
+        center_lat = sum(p[0] for p in all_pts) / len(all_pts)
+        center_lon = sum(p[1] for p in all_pts) / len(all_pts)
+
+        mmap = f"""<!DOCTYPE html><html><head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>html,body,#map{{height:100%;margin:0;padding:0;background:#080c14}}</style>
-</head><body><div id="map"></div>
+<style>
+html,body,#map{{height:100%;margin:0;padding:0;background:#080c14}}
+.leaflet-popup-content-wrapper{{background:#0d1320;border:1px solid rgba(201,168,76,.3);border-radius:10px;color:#e2e8f0;font-family:'Tajawal',sans-serif;font-size:13px}}
+.leaflet-popup-tip{{background:#0d1320}}
+</style>
+</head><body>
+<div id="map"></div>
 <script>
-var map=L.map('map').setView([{lat3},{lon3}],13);
+var map = L.map('map').setView([{center_lat},{center_lon}], 13);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}',{{attribution:'© Esri'}}).addTo(map);
-{mjs}
-</script></body></html>"""
-            st.markdown('<div style="margin-top:16px"><b style="font-size:13px;color:var(--muted)">🗺️ خريطة — 🟡 الحالية · 🔵 القريبة</b></div>', unsafe_allow_html=True)
-            st.components.v1.html(mmap, height=320)
+{''.join(pts_js)}
+</script>
+</body></html>"""
+
+        st.markdown("""
+        <div style="margin-top:18px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;font-weight:800;color:var(--text)">🗺️ الخريطة التفاعلية</span>
+          <span style="font-size:11px;color:var(--muted)">🔴 الحالية · 🔵 الجماعة · <span style="color:#10b981">━</span> إشعاع ≤2كم</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.components.v1.html(mmap, height=400)
 
     if cat3=="idadi":    show_nearby("ibtidai","الابتدائيات في نفس الجماعة")
     elif cat3=="thanawi": show_nearby("idadi",  "الإعداديات في نفس الجماعة")
