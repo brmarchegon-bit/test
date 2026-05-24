@@ -191,7 +191,7 @@ CAT_COLOR = {"ibtidai":"#3b82f6","idadi":"#10b981","thanawi":"#8b5cf6","other":"
 FEED_LEVELS = {"ibtidai": 0, "idadi": 1, "thanawi": 2}
 
 # ══════════════════════════════════════════════════════
-#  ✦ NEW: دوال الأحواض المدرسية والتحويل والتقارير
+#  دوال الأحواض المدرسية والتحويل والتقارير
 # ══════════════════════════════════════════════════════
 
 def get_feeders(df_scope, host_row, radius_km=2.0):
@@ -214,9 +214,7 @@ def get_feeders(df_scope, host_row, radius_km=2.0):
 
 
 def get_overflow_suggestions(df_scope, surch_row, radius_km=2.0):
-    """
-    لمؤسسة مكتظة: مؤسسات من نفس السلك، بطاقة فائضة (taux<0.85)، ضمن radius_km.
-    """
+    """لمؤسسة مكتظة: مؤسسات من نفس السلك، بطاقة فائضة (taux<0.85)، ضمن radius_km."""
     cat      = surch_row.get("_cat", "other")
     lat      = surch_row.get("_lat", 0)
     lon      = surch_row.get("_lon", 0)
@@ -241,7 +239,7 @@ def get_overflow_suggestions(df_scope, surch_row, radius_km=2.0):
 
 @st.cache_data(show_spinner=False)
 def compute_advanced_kpis(df_hash):
-    """يحسب المؤشرات المتقدمة (تمرير df.to_json() للتخزين المؤقت)."""
+    """يحسب المؤشرات المتقدمة."""
     df_scope = pd.read_json(io.StringIO(df_hash))
     n = len(df_scope)
     if n == 0:
@@ -252,16 +250,16 @@ def compute_advanced_kpis(df_hash):
     surch_n = int(df_scope["_surch"].sum())
     taux_v  = df_scope["_taux"].dropna()
     dens_v  = df_scope["_density"].dropna()
-    avg_taux    = round(float(taux_v.mean()), 2)    if not taux_v.empty else None
-    avg_density = round(float(dens_v.mean()), 1)    if not dens_v.empty else None
+    avg_taux    = round(float(taux_v.mean()), 2)   if not taux_v.empty else None
+    avg_density = round(float(dens_v.mean()), 1)   if not dens_v.empty else None
     pct_surch   = round(surch_n / n * 100, 1)
-    geo_cov     = round(len(df_scope[(df_scope["_lat"]!=0)&(df_scope["_lon"]!=0)])/n*100,1)
+    geo_cov     = round(len(df_scope[(df_scope["_lat"]!=0)&(df_scope["_lon"]!=0)])/n*100, 1)
     hosts = df_scope[df_scope["_cat"].isin(["idadi","thanawi"])]
     basin_sizes = []
     for _, h in hosts.iterrows():
         feeders = get_feeders(df_scope, h, 2.0)
         basin_sizes.append(len(feeders))
-    avg_basin = round(sum(basin_sizes)/len(basin_sizes),1) if basin_sizes else 0
+    avg_basin = round(sum(basin_sizes)/len(basin_sizes), 1) if basin_sizes else 0
     return {
         "n_total":n,"n_elev":elev,"n_classes":nc_sum,"n_salles":ns_sum,
         "n_surch":surch_n,"pct_surch":pct_surch,
@@ -286,8 +284,8 @@ def build_basin_map_folium(df_scope, selected_code=None, radius_km=2.0, show_lin
 
     # 1. خيوط الروافد
     if show_lines:
-        hosts = df_scope[df_scope["_cat"].isin(["idadi","thanawi"])&
-                         (df_scope["_lat"]!=0)&(df_scope["_lon"]!=0)]
+        hosts = df_scope[df_scope["_cat"].isin(["idadi","thanawi"]) &
+                         (df_scope["_lat"]!=0) & (df_scope["_lon"]!=0)]
         for _, host in hosts.iterrows():
             feeders = get_feeders(df_scope, host, radius_km)
             for _, feeder in feeders.iterrows():
@@ -349,8 +347,8 @@ def generate_csv_report(df_scope, province_name):
         "_taux":"معدل الاشغال", "_density":"كثافة القسم",
         "_surch":"مكتظة",
     }
-    existing   = {k: v for k, v in cols_export.items() if k in df_scope.columns}
-    df_export  = df_scope[list(existing.keys())].copy()
+    existing  = {k: v for k, v in cols_export.items() if k in df_scope.columns}
+    df_export = df_scope[list(existing.keys())].copy()
     df_export.columns = list(existing.values())
     df_export["السلك"]  = df_export["السلك"].map(CAT_LABEL).fillna("أخرى")
     df_export["مكتظة"] = df_export["مكتظة"].map({True:"نعم", False:"لا"})
@@ -364,8 +362,6 @@ def generate_pdf_report(kpis, province_name, df_scope):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_fill_color(8, 12, 20)
-
-    # Header
     pdf.set_font("Helvetica", "B", 18)
     pdf.set_text_color(201, 168, 76)
     pdf.cell(0, 14, f"Rapport Educatif — {province_name}", ln=True, align="C")
@@ -373,8 +369,6 @@ def generate_pdf_report(kpis, province_name, df_scope):
     pdf.set_text_color(100, 116, 139)
     pdf.cell(0, 7, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True, align="C")
     pdf.ln(8)
-
-    # KPIs
     pdf.set_font("Helvetica", "B", 13)
     pdf.set_text_color(30, 30, 30)
     pdf.cell(0, 9, "Indicateurs Cles", ln=True)
@@ -396,8 +390,6 @@ def generate_pdf_report(kpis, province_name, df_scope):
         pdf.cell(110, 7, k, border=1, fill=True)
         pdf.cell(0,   7, v, border=1, fill=False, ln=True)
     pdf.ln(8)
-
-    # Overcrowded list
     surch_df = df_scope[df_scope["_surch"]].sort_values("_taux", ascending=False)
     if not surch_df.empty:
         pdf.set_font("Helvetica", "B", 13)
@@ -423,7 +415,6 @@ def generate_pdf_report(kpis, province_name, df_scope):
             for w, v in zip(widths, vals):
                 pdf.cell(w, 6, v, border=1)
             pdf.ln()
-
     return bytes(pdf.output())
 
 
@@ -465,10 +456,14 @@ def check_login():
             np2 = st.text_input("تأكيد كلمة السر", type="password", key="rg_p2")
             if st.button("إرسال الطلب", type="primary", key="rg_btn"):
                 users = get_users(); pending = get_pending()
-                if not nu or not ne or not np:   st.error("يرجى ملء جميع الحقول")
-                elif np != np2:                  st.error("كلمتا السر غير متطابقتان")
-                elif nu in users:                st.error("اسم المستخدم موجود مسبقاً")
-                elif nu in pending:              st.warning("تم إرسال طلبك مسبقاً")
+                if not nu or not ne or not np:
+                    st.error("يرجى ملء جميع الحقول")
+                elif np != np2:
+                    st.error("كلمتا السر غير متطابقتان")
+                elif nu in users:
+                    st.error("اسم المستخدم موجود مسبقاً")
+                elif nu in pending:
+                    st.warning("تم إرسال طلبك مسبقاً")
                 else:
                     pending[nu] = {"email": ne, "password": np}
                     save_json(PENDING_FILE, pending)
@@ -493,32 +488,58 @@ def load_data():
     df["_nc"]      = df[COL["classes"]].apply(si)
     df["_ns"]      = df[COL["salles"]].apply(si)
     df["_elev"]    = df[COL["eleves"]].apply(si)
-    df["_taux"]    = df.apply(lambda r: round(r["_nc"]/r["_ns"],2) if r["_ns"]>0 else None, axis=1)
+    df["_taux"]    = df.apply(lambda r: round(r["_nc"]/r["_ns"], 2) if r["_ns"] > 0 else None, axis=1)
     df["_surch"]   = df["_taux"].apply(lambda t: t is not None and t > 1.9)
-    df["_density"] = df.apply(lambda r: round(r["_elev"]/r["_nc"],1) if r["_nc"]>0 else None, axis=1)
+    df["_density"] = df.apply(lambda r: round(r["_elev"]/r["_nc"], 1) if r["_nc"] > 0 else None, axis=1)
+
+    # كثافة حسب السلك: ابتدائي>30 / إعدادي+ثانوي>36
+    df["_thresh"]      = df["_cat"].apply(lambda c: 30 if c == "ibtidai" else 36)
+    df["_surch_cycle"] = df.apply(lambda r: bool(r["_density"] and r["_density"] > r["_thresh"]), axis=1)
+
+    def _score(row):
+        if not row["_surch_cycle"]: return 0
+        ratio = row["_density"] / row["_thresh"] if row["_thresh"] else 1
+        if ratio < 1.2: return 1
+        if ratio < 1.5: return 2
+        return 3
+    df["_score"] = df.apply(_score, axis=1)
+
+    def _year(val):
+        try:
+            y = int(str(val).strip()[:4])
+            return y if 1900 < y < 2100 else None
+        except: return None
+    df["_yr_constr"] = df[COL["dt_constr"]].apply(_year)
+    df["_old"]       = df["_yr_constr"].apply(lambda y: y is not None and y < 1990)
+
+    df["_lat_ratio"] = df.apply(lambda r: round(si(r.get(COL["latrines"], 0)) / r["_elev"] * 50, 2) if r["_elev"] > 0 else 0, axis=1)
+    df["_lat_poor"]  = df["_lat_ratio"].apply(lambda x: x < 1.0)
+    df["_priority"]  = df["_score"].clip(0,3) + df["_old"].astype(int) + df["_lat_poor"].astype(int)
     return df
 
 df = load_data()
 
-n_ibt  = int((df["_cat"]=="ibtidai").sum())
-n_ida  = int((df["_cat"]=="idadi").sum())
-n_tha  = int((df["_cat"]=="thanawi").sum())
-n_srch = int(df["_surch"].sum())
-total  = len(df)
-t_elev = int(df["_elev"].sum())
+n_ibt   = int((df["_cat"] == "ibtidai").sum())
+n_ida   = int((df["_cat"] == "idadi").sum())
+n_tha   = int((df["_cat"] == "thanawi").sum())
+n_oth   = int((df["_cat"] == "other").sum())
+n_srch  = int(df["_surch_cycle"].sum())
+total   = len(df)
+t_elev  = int(df["_elev"].sum())
 is_admin   = st.session_state.get("is_admin", False)
 is_inspect = st.session_state.get("is_inspect", False)
 
 # ══ SESSION STATE ══
 for _k, _v in [
-    ("sel_province",None),("sel_commune",None),("inst_query",""),
-    ("selected_code",None),("view_level","global"),("compare_code",None),("active_tab",0)
+    ("sel_province", None), ("sel_commune", None), ("inst_query", ""),
+    ("selected_code", None), ("view_level", "global"), ("compare_code", None),
+    ("active_tab", 0), ("show_admin_panel", False)
 ]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
 # ══ HERO ══
-uname = st.session_state.get("username","")
+uname = st.session_state.get("username", "")
 role_label = "مسؤول 👑" if is_admin else ("مفتش 🔍" if is_inspect else "مستخدم")
 st.markdown(f"""
 <div class="hero-bar">
@@ -527,7 +548,7 @@ st.markdown(f"""
       <div style="font-size:44px;line-height:1">🎓</div>
       <div>
         <div class="hero-title">منظومة المؤسسات التعليمية</div>
-        <div class="hero-sub">أحواض مدرسية · مؤشرات متقدمة · تقارير قابلة للتحميل · اقتراحات التحويل</div>
+        <div class="hero-sub">بحث ذكي · إحصائيات متقدمة · أحواض مدرسية · تقارير قابلة للتحميل · لوحة الإدارة</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
@@ -536,6 +557,15 @@ st.markdown(f"""
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+# ══ ADMIN BUTTON (top right, admin only) ══
+if is_admin:
+    admin_col = st.columns([6, 1])[1]
+    with admin_col:
+        btn_label = "🔒 إغلاق الإدارة" if st.session_state.show_admin_panel else "⚙️ لوحة الإدارة"
+        if st.button(btn_label, key="toggle_admin_panel", type="primary"):
+            st.session_state.show_admin_panel = not st.session_state.show_admin_panel
+            st.rerun()
 
 # ══ KPI ══
 st.markdown(f"""
@@ -549,7 +579,65 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ══ SIDEBAR ══
+# ══ ADMIN PANEL SIDEBAR (للمسؤول فقط عند الفتح) ══
+if is_admin and st.session_state.show_admin_panel:
+    with st.sidebar:
+        st.markdown("""
+        <div style="padding:18px 16px 12px;border-bottom:1px solid var(--border);
+                    background:linear-gradient(135deg,rgba(201,168,76,.08),transparent)">
+          <div style="font-size:16px;font-weight:900;color:var(--gold)">⚙️ لوحة المسؤول</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">إدارة المستخدمين والطلبات</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        adm_tab1, adm_tab2, adm_tab3 = st.tabs(["👥 الطلبات", "🔑 المستخدمون", "🗑️ حذف"])
+
+        with adm_tab1:
+            pending = get_pending()
+            if not pending:
+                st.success("✅ لا توجد طلبات معلقة")
+            else:
+                st.markdown(f'<div style="font-size:12px;color:var(--muted);margin-bottom:10px">{len(pending)} طلب في الانتظار</div>', unsafe_allow_html=True)
+                for uname_p, info in list(pending.items()):
+                    email = info.get("email", "")
+                    st.markdown(f'<div style="padding:8px 0;border-bottom:1px solid var(--border)"><strong style="color:var(--text);font-size:13px">{uname_p}</strong><div style="font-size:11px;color:var(--muted)">{email}</div></div>', unsafe_allow_html=True)
+                    ca, cb = st.columns(2)
+                    if ca.button("✅ قبول", key=f"acc_{uname_p}"):
+                        users = load_json(USERS_FILE, {})
+                        users[uname_p] = info["password"]
+                        save_json(USERS_FILE, users)
+                        pending.pop(uname_p)
+                        save_json(PENDING_FILE, pending)
+                        st.success(f"تم قبول {uname_p}")
+                        st.rerun()
+                    if cb.button("❌ رفض", key=f"rej_{uname_p}"):
+                        pending.pop(uname_p)
+                        save_json(PENDING_FILE, pending)
+                        st.warning(f"تم رفض {uname_p}")
+                        st.rerun()
+
+        with adm_tab2:
+            users_all = get_users()
+            st.markdown(f'<div style="font-size:12px;color:var(--muted);margin-bottom:10px">{len(users_all)} مستخدم مسجّل</div>', unsafe_allow_html=True)
+            for u in users_all:
+                badge = "chip-gold" if u == "admin" else ("chip-blue" if u == "inspecteur" else "chip-green")
+                role  = "مسؤول" if u == "admin" else ("مفتش" if u == "inspecteur" else "مستخدم")
+                st.markdown(f'<div style="padding:8px 0;border-bottom:1px solid var(--border)"><span class="chip {badge}">{role}</span> <strong style="color:var(--text);font-size:13px">{u}</strong></div>', unsafe_allow_html=True)
+
+        with adm_tab3:
+            users_saved = load_json(USERS_FILE, {})
+            deletable   = [u for u in users_saved if u not in ("admin", "inspecteur")]
+            if not deletable:
+                st.info("لا يوجد مستخدمون قابلون للحذف")
+            else:
+                del_u = st.selectbox("اختر المستخدم", deletable, key="del_user_sel")
+                if st.button("🗑️ حذف", key="del_user_btn", type="primary"):
+                    users_saved.pop(del_u, None)
+                    save_json(USERS_FILE, users_saved)
+                    st.success(f"تم حذف: {del_u}")
+                    st.rerun()
+
+# ══ SIDEBAR الرئيسي ══
 with st.sidebar:
     st.markdown("""
     <div style="padding:24px 16px 16px;border-bottom:1px solid var(--border)">
@@ -565,10 +653,12 @@ with st.sidebar:
     def _on_prov():
         new_p = st.session_state._sb_prov
         if new_p == "— اختر المديرية —":
-            for k,v in [("sel_province",None),("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","global"),("compare_code",None)]: st.session_state[k]=v
+            for k, v in [("sel_province",None),("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","global"),("compare_code",None)]:
+                st.session_state[k] = v
         elif new_p != st.session_state.sel_province:
             st.session_state.sel_province = new_p
-            for k,v in [("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","province"),("compare_code",None)]: st.session_state[k]=v
+            for k, v in [("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","province"),("compare_code",None)]:
+                st.session_state[k] = v
 
     cur_pi = prov_options.index(st.session_state.sel_province) if st.session_state.sel_province in prov_options else 0
     st.selectbox("", prov_options, index=cur_pi, label_visibility="collapsed", key="_sb_prov", on_change=_on_prov)
@@ -582,10 +672,12 @@ with st.sidebar:
         def _on_comm():
             new_c = st.session_state._sb_comm
             if new_c == "— اختر الجماعة —":
-                for k,v in [("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","province"),("compare_code",None)]: st.session_state[k]=v
+                for k, v in [("sel_commune",None),("inst_query",""),("selected_code",None),("view_level","province"),("compare_code",None)]:
+                    st.session_state[k] = v
             elif new_c != st.session_state.sel_commune:
                 st.session_state.sel_commune = new_c
-                for k,v in [("inst_query",""),("selected_code",None),("view_level","commune"),("compare_code",None)]: st.session_state[k]=v
+                for k, v in [("inst_query",""),("selected_code",None),("view_level","commune"),("compare_code",None)]:
+                    st.session_state[k] = v
 
         cur_ci = comm_opts.index(st.session_state.sel_commune) if st.session_state.sel_commune in comm_opts else 0
         st.selectbox("", comm_opts, index=cur_ci, label_visibility="collapsed", key="_sb_comm", on_change=_on_comm)
@@ -596,40 +688,46 @@ with st.sidebar:
             df_scope = df_scope[df_scope[COL["commune"]]==st.session_state.sel_commune]
         st.markdown('<div style="padding:10px 14px 6px"><div style="font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.2px;margin-bottom:6px">③ البحث الفوري</div></div>', unsafe_allow_html=True)
 
-        def _on_search():
-            st.session_state.inst_query    = st.session_state._sb_search
-            st.session_state.selected_code = None
+        search_val = st.text_input(
+            "", placeholder="🔍 ابحث عن مؤسسة…",
+            label_visibility="collapsed", key="_sb_search"
+        )
 
-        st.text_input("", placeholder="🔍 ابحث عن مؤسسة…", value=st.session_state.inst_query,
-                      label_visibility="collapsed", key="_sb_search", on_change=_on_search)
-
-        q = st.session_state.inst_query.strip().lower()
+        q = search_val.strip().lower() if search_val else ""
         if q:
             mask = (
-                df_scope[COL["nom_ar"]].str.lower().str.contains(q,na=False) |
-                df_scope[COL["nom_fr"]].str.lower().str.contains(q,na=False) |
-                df_scope[COL["code"]].str.lower().str.contains(q,na=False)
+                df_scope[COL["nom_ar"]].str.lower().str.contains(q, na=False) |
+                df_scope[COL["nom_fr"]].str.lower().str.contains(q, na=False) |
+                df_scope[COL["code"]].str.lower().str.contains(q, na=False)
             )
             results = df_scope[mask].head(20)
-            st.markdown(f'<div style="padding:4px 14px;font-size:11px;color:var(--muted)">{len(results)} نتيجة</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="padding:4px 14px;font-size:11px;color:var(--muted)">{len(results)} نتيجة</div>',
+                unsafe_allow_html=True
+            )
             for _, row in results.iterrows():
-                code = str(row.get(COL["code"],""))
-                name = str(row.get(COL["nom_ar"],row.get(COL["nom_fr"],code)))
-                cat  = row.get("_cat","other")
-                chip_cls = CAT_CHIP.get(cat,"chip-gray")
-                lbl  = CAT_LABEL.get(cat,"")
-                is_sel = st.session_state.selected_code == code
-                border = "border-color:var(--gold)" if is_sel else ""
+                code     = str(row.get(COL["code"], ""))
+                name     = str(row.get(COL["nom_ar"], row.get(COL["nom_fr"], code)))
+                cat      = row.get("_cat", "other")
+                chip_cls = CAT_CHIP.get(cat, "chip-gray")
+                lbl      = CAT_LABEL.get(cat, "")
+                is_sel   = st.session_state.selected_code == code
+                border   = "border-color:var(--gold)" if is_sel else ""
                 st.markdown(f"""
-                <div style="padding:4px 14px">
-                  <div style="background:var(--surface2);border:1px solid var(--border2);{border};border-radius:10px;padding:10px 12px;margin-bottom:6px">
+                <div style="padding:2px 8px">
+                  <div style="background:var(--surface2);border:1px solid var(--border2);{border};
+                              border-radius:10px;padding:8px 12px;margin-bottom:4px">
                     <div style="font-size:13px;font-weight:700;color:var(--text)">{name}</div>
-                    <div style="margin-top:4px"><span class="chip {chip_cls}">{lbl}</span><span style="font-size:11px;color:var(--muted);margin-right:6px">{code}</span></div>
+                    <div style="margin-top:4px">
+                      <span class="chip {chip_cls}">{lbl}</span>
+                      <span style="font-size:11px;color:var(--muted);margin-right:6px">{code}</span>
+                    </div>
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button(f"عرض", key=f"sel_{code}"):
+                if st.button("عرض ←", key=f"sb_sel_{code}"):
                     st.session_state.selected_code = code
+                    st.session_state.inst_query    = search_val
                     st.session_state.view_level    = "institution"
                     st.rerun()
 
@@ -642,7 +740,7 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════
 #  MAIN TABS
 # ══════════════════════════════════════════════════════
-tabs_labels = ["🏫 المؤسسات", "📊 الإحصائيات", "🗺️ الأحواض", "📄 التقارير"]
+tabs_labels = ["🏫 المؤسسات", "📊 الإحصائيات", "🗺️ الأحواض", "📄 التقارير", "📈 لوحة الأولويات"]
 if is_admin:
     tabs_labels.append("⚙️ الإدارة")
 
@@ -705,7 +803,7 @@ with tabs[0]:
                 taux=row.get("_taux",None); dens=row.get("_density",None)
                 st.markdown('<div class="detail-box">', unsafe_allow_html=True)
                 st.markdown('<div class="detail-title">🏫 الطاقة الاستيعابية</div>', unsafe_allow_html=True)
-                for k,v in [("عدد التلاميذ",f"{elev:,}"),("عدد الأقسام",nc),("عدد الحجرات",ns)]:
+                for k, v in [("عدد التلاميذ",f"{elev:,}"),("عدد الأقسام",nc),("عدد الحجرات",ns)]:
                     st.markdown(f'<div class="detail-row"><span class="detail-key">{k}</span><span class="detail-val">{v}</span></div>', unsafe_allow_html=True)
                 if taux is not None:
                     color="#ef4444" if taux>1.9 else "#10b981"
@@ -722,7 +820,7 @@ with tabs[0]:
                     </div>""", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                # ✦ NEW: الأحواض / الروافد للمؤسسة المحددة
+                # الروافد المباشرة للمؤسسة
                 if cat in ("idadi","thanawi"):
                     feeders = get_feeders(df, row, 2.0)
                     st.markdown('<div class="detail-box">', unsafe_allow_html=True)
@@ -737,7 +835,7 @@ with tabs[0]:
                             st.markdown(f'<div class="detail-row"><span class="detail-key"><span class="chip chip-blue">{fn}</span></span><span class="detail-val" style="font-size:11px">📍{fd}كم · {fe:,}ت</span></div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                # ✦ NEW: اقتراحات التحويل إن كانت مكتظة
+                # اقتراحات التحويل إن كانت مكتظة
                 if row.get("_surch", False):
                     sugg = get_overflow_suggestions(df, row, 2.0)
                     st.markdown('<div class="surch-card">', unsafe_allow_html=True)
@@ -773,7 +871,7 @@ with tabs[0]:
 
                 st.markdown('<div class="detail-box">', unsafe_allow_html=True)
                 st.markdown('<div class="detail-title">❤️ الدعم الاجتماعي</div>', unsafe_allow_html=True)
-                for label,col_key in [
+                for label, col_key in [
                     ("منحة كاملة",COL["b_complet"]),("نصف منحة",COL["b_demi"]),
                     ("مستفيدو الدعم التربوي",COL["sout_ben"]),("ساعات الدعم",COL["sout_h"]),
                     ("أيام الإطعام",COL["rest_j"]),
@@ -822,7 +920,7 @@ with tabs[0]:
             for _, row in df_show.head(50).iterrows():
                 code=str(row.get(COL["code"],"")); nm_ar=str(row.get(COL["nom_ar"],"")); nm_fr=str(row.get(COL["nom_fr"],""))
                 cat=row.get("_cat","other"); elev=row.get("_elev",0); nc=row.get("_nc",0); surch=row.get("_surch",False)
-                c1b,c2b = st.columns([6,1])
+                c1b, c2b = st.columns([6,1])
                 with c1b:
                     st.markdown(f"""
                     <div class="inst-card {cat}">
@@ -842,7 +940,7 @@ with tabs[0]:
 
 
 # ──────────────────────────────────────────────────────
-#  TAB 1 — STATISTICS (مُحسَّن)
+#  TAB 1 — STATISTICS
 # ──────────────────────────────────────────────────────
 with tabs[1]:
     if st.session_state.sel_province:
@@ -855,7 +953,6 @@ with tabs[1]:
     scope_lbl = st.session_state.sel_commune or st.session_state.sel_province or "الوطني"
     st.markdown(f'<div class="section-hd">📊 إحصائيات — {scope_lbl}</div>', unsafe_allow_html=True)
 
-    # مؤشرات متقدمة
     kpis = compute_advanced_kpis(df_stat.to_json())
 
     kc = st.columns(4)
@@ -893,7 +990,7 @@ with tabs[1]:
             med  = int(((dens_data>30)&(dens_data<=40)).sum())
             high = int((dens_data>40).sum())
             total_d = low+med+high
-            for label,cnt,color in [
+            for label, cnt, color in [
                 ("🟢 خضر ≤30 تلميذ/قسم",low,"#10b981"),
                 ("🟠 برتقالي 31-40",med,"#f97316"),
                 ("🔴 أحمر >40",high,"#ef4444"),
@@ -905,7 +1002,7 @@ with tabs[1]:
                   <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct}%;background:{color}"></div></div>
                 </div>""", unsafe_allow_html=True)
 
-    # ✦ NEW: اقتراحات التحويل
+    # اقتراحات التحويل
     surch_df = df_stat[df_stat["_surch"]].copy()
     if not surch_df.empty:
         st.markdown('<div class="section-hd">🔄 اقتراحات تحويل التلاميذ — المكتظة + البديل القريب</div>', unsafe_allow_html=True)
@@ -942,7 +1039,7 @@ with tabs[1]:
         st.markdown('<div class="section-hd">📍 توزيع حسب الإقليم / المديرية</div>', unsafe_allow_html=True)
         prov_counts = df_stat.groupby(COL["province"]).size().sort_values(ascending=False).head(15)
         max_c = prov_counts.max()
-        for prov,cnt in prov_counts.items():
+        for prov, cnt in prov_counts.items():
             pct=round(cnt/max_c*100,1)
             st.markdown(f"""<div class="stat-bar-wrap">
               <div class="stat-bar-label"><span>{prov}</span><span>{cnt:,}</span></div>
@@ -953,7 +1050,7 @@ with tabs[1]:
         st.markdown('<div class="section-hd">🏘️ توزيع حسب الجماعة</div>', unsafe_allow_html=True)
         comm_counts = df_stat.groupby(COL["commune"]).size().sort_values(ascending=False)
         max_c = comm_counts.max()
-        for comm,cnt in comm_counts.items():
+        for comm, cnt in comm_counts.items():
             pct=round(cnt/max_c*100,1)
             st.markdown(f"""<div class="stat-bar-wrap">
               <div class="stat-bar-label"><span>{comm}</span><span>{cnt:,}</span></div>
@@ -978,9 +1075,9 @@ with tabs[2]:
         st.info("👈 اختر مديرية أولاً لعرض خريطة الأحواض المدرسية")
     else:
         mc1, mc2, mc3, mc4 = st.columns(4)
-        show_lines = mc1.checkbox("🔗 خيوط الروافد",    value=True, key="map_lines")
-        show_surch = mc2.checkbox("⚠ المكتظة فقط",      value=False, key="map_surch_only")
-        radius_km  = mc3.slider("نصف القطر كم",          0.5, 5.0, 2.0, 0.5, key="map_radius")
+        show_lines     = mc1.checkbox("🔗 خيوط الروافد",   value=True, key="map_lines")
+        show_surch     = mc2.checkbox("⚠ المكتظة فقط",     value=False, key="map_surch_only")
+        radius_km      = mc3.slider("نصف القطر كم",         0.5, 5.0, 2.0, 0.5, key="map_radius")
         cat_filter_map = mc4.selectbox("تصفية السلك", ["الكل","ابتدائية","إعدادية","تأهيلية"], key="map_cat")
 
         df_map_use = df_map.copy()
@@ -1017,7 +1114,7 @@ with tabs[2]:
 
 
 # ──────────────────────────────────────────────────────
-#  TAB 3 — REPORTS
+#  TAB 3 — REPORTS (تقارير + تحميل CSV/PDF)
 # ──────────────────────────────────────────────────────
 with tabs[3]:
     st.markdown('<div class="section-hd">📄 التقارير والتنزيلات</div>', unsafe_allow_html=True)
@@ -1117,10 +1214,140 @@ with tabs[3]:
 
 
 # ──────────────────────────────────────────────────────
-#  TAB 4 — ADMIN
+#  TAB 4 — PRIORITY DASHBOARD (لوحة الأولويات)
 # ──────────────────────────────────────────────────────
-if is_admin and len(tabs) > 4:
-    with tabs[4]:
+with tabs[4]:
+    if st.session_state.sel_province:
+        df_rep = df[df[COL["province"]]==st.session_state.sel_province]
+        if st.session_state.sel_commune:
+            df_rep = df_rep[df_rep[COL["commune"]]==st.session_state.sel_commune]
+    else:
+        df_rep = df.copy()
+
+    scope_lbl = st.session_state.sel_commune or st.session_state.sel_province or "الوطني"
+    st.markdown(f'<div class="section-hd">📈 لوحة الأولويات — {scope_lbl}</div>', unsafe_allow_html=True)
+
+    tot_r   = len(df_rep)
+    elev_r  = int(df_rep["_elev"].sum())
+    surch_r = int(df_rep["_surch_cycle"].sum())
+    old_r   = int(df_rep["_old"].sum())
+    prio_hi = int((df_rep["_priority"] >= 3).sum())
+    avg_d   = df_rep["_density"].dropna().mean()
+
+    kc = st.columns(6)
+    kc[0].metric("المؤسسات",    f"{tot_r:,}")
+    kc[1].metric("التلاميذ",    f"{elev_r:,}")
+    kc[2].metric("مكتظة",       f"{surch_r} ({round(surch_r/tot_r*100,1) if tot_r else 0}%)")
+    kc[3].metric("بناء قديم",   f"{old_r}")
+    kc[4].metric("أولوية عالية",f"{prio_hi}")
+    kc[5].metric("متوسط الكثافة",f"{avg_d:.1f}" if not pd.isna(avg_d) else "—")
+
+    st.markdown("---")
+    rc1, rc2 = st.columns(2)
+
+    with rc1:
+        st.markdown('<div class="section-hd">توزيع المؤسسات</div>', unsafe_allow_html=True)
+        for cat_k, cat_l in CAT_LABEL.items():
+            cnt   = int((df_rep["_cat"] == cat_k).sum())
+            surch = int(df_rep[df_rep["_cat"] == cat_k]["_surch_cycle"].sum())
+            pct   = round(cnt/tot_r*100,1) if tot_r else 0
+            color = CAT_COLOR.get(cat_k, "#64748b")
+            st.markdown(f"""
+            <div class="stat-bar-wrap">
+              <div class="stat-bar-label">
+                <span>{cat_l}</span>
+                <span>{cnt} (<span style="color:#ef4444">{surch} مكتظة</span>)</span>
+              </div>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct}%;background:{color}"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div class="section-hd">توزيع الكثافة</div>', unsafe_allow_html=True)
+        for label, mask_fn, color in [
+            ("مريحة (ابتدائي≤30 / آخر≤36)",
+             lambda d: not d["_surch_cycle"], "#10b981"),
+            ("مكتظة نسبياً (حتى +20%)",
+             lambda d: d["_surch_cycle"] and d.get("_score",0) == 1, "#f97316"),
+            ("مكتظة كثيراً (+20% إلى +50%)",
+             lambda d: d["_surch_cycle"] and d.get("_score",0) == 2, "#ef4444"),
+            ("اكتظاظ حاد (+50% فما فوق)",
+             lambda d: d["_surch_cycle"] and d.get("_score",0) >= 3, "#7f1d1d"),
+        ]:
+            cnt2 = int(df_rep.apply(mask_fn, axis=1).sum())
+            pct2 = round(cnt2/tot_r*100,1) if tot_r else 0
+            st.markdown(f"""
+            <div class="stat-bar-wrap">
+              <div class="stat-bar-label"><span style="font-size:11px">{label}</span><span>{cnt2} ({pct2}%)</span></div>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct2}%;background:{color}"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    with rc2:
+        st.markdown('<div class="section-hd">🏘️ أولويات الجماعات</div>', unsafe_allow_html=True)
+        comm_rep = df_rep.groupby(COL["commune"]).agg(
+            total=("_cat","count"),
+            surch=("_surch_cycle","sum"),
+            prio=("_priority","sum"),
+            old_c=("_old","sum"),
+        ).reset_index().sort_values("prio", ascending=False).head(10)
+
+        for _, cr in comm_rep.iterrows():
+            pct_s = round(int(cr["surch"])/int(cr["total"])*100,1) if cr["total"] else 0
+            bar_w = min(int(cr["prio"]) / (comm_rep["prio"].max() or 1) * 100, 100)
+            bar_c = "#ef4444" if pct_s > 50 else ("#f97316" if pct_s > 25 else "#10b981")
+            old_note = f" · 🏚️ {int(cr['old_c'])} قديمة" if cr["old_c"] else ""
+            st.markdown(f"""
+            <div class="stat-bar-wrap">
+              <div class="stat-bar-label">
+                <span>{cr[COL["commune"]]}{old_note}</span>
+                <span style="color:{bar_c};font-weight:700">{int(cr["surch"])}/{int(cr["total"])} مكتظة</span>
+              </div>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{bar_w:.1f}%;background:{bar_c}"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div class="section-hd">🚨 أعلى 5 مؤسسات بالأولوية</div>', unsafe_allow_html=True)
+        top5 = df_rep.nlargest(5, "_priority")[[COL["nom_ar"], "_cat", "_density", "_thresh", "_priority", "_old"]].copy()
+        for _, tr in top5.iterrows():
+            nom5  = str(tr[COL["nom_ar"]])
+            cat5  = tr["_cat"]
+            dens5 = tr["_density"] or 0
+            thr5  = tr["_thresh"]
+            pri5  = int(tr["_priority"])
+            old5  = tr["_old"]
+            color5 = "#ef4444" if pri5 >= 4 else ("#f97316" if pri5 >= 2 else "#10b981")
+            tags = f'<span class="chip {CAT_CHIP.get(cat5,"chip-gray")}">{CAT_LABEL.get(cat5,"")}</span>'
+            if old5: tags += '<span class="chip chip-orange">🏚️ قديمة</span>'
+            if dens5 > thr5: tags += f'<span class="chip chip-red">كثافة {dens5}</span>'
+            st.markdown(f'''
+            <div style="background:var(--surface2);border:1px solid {color5}44;border-right:3px solid {color5};
+                        border-radius:10px;padding:12px 14px;margin-bottom:8px">
+              <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">{nom5}</div>
+              {tags}
+              <div style="float:left;font-size:18px;font-weight:900;color:{color5}">{pri5}/5</div>
+            </div>
+            ''', unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown('<div class="section-hd">📊 ملخص كل الجماعات</div>', unsafe_allow_html=True)
+    comm_full = df_rep.groupby(COL["commune"]).agg(
+        المؤسسات=("_cat","count"),
+        التلاميذ=("_elev","sum"),
+        المكتظة=("_surch_cycle","sum"),
+        القديمة=("_old","sum"),
+        الأولوية=("_priority","sum"),
+    ).reset_index().rename(columns={COL["commune"]: "الجماعة"}).sort_values("الأولوية", ascending=False)
+    comm_full["نسبة الاكتظاظ"] = comm_full.apply(
+        lambda r: f"{round(r['المكتظة']/r['المؤسسات']*100,1)}%" if r["المؤسسات"] else "0%", axis=1
+    )
+    st.dataframe(comm_full, use_container_width=True, hide_index=True)
+
+
+# ──────────────────────────────────────────────────────
+#  TAB 5 — ADMIN (للمسؤول فقط)
+# ──────────────────────────────────────────────────────
+if is_admin and len(tabs) > 5:
+    with tabs[5]:
         st.markdown('<div class="section-hd">⚙️ لوحة المسؤول</div>', unsafe_allow_html=True)
         adm_tab1, adm_tab2, adm_tab3 = st.tabs(["👥 طلبات الحسابات","🔑 المستخدمون","🗑️ حذف مستخدم"])
 
@@ -1132,9 +1359,9 @@ if is_admin and len(tabs) > 4:
                 st.markdown(f'<div style="font-size:13px;color:var(--muted);margin-bottom:16px">{len(pending)} طلب في الانتظار</div>', unsafe_allow_html=True)
                 for uname_p, info in list(pending.items()):
                     email = info.get("email","")
-                    c1a,c2a,c3a = st.columns([3,1,1])
+                    c1a, c2a, c3a = st.columns([3,1,1])
                     c1a.markdown(f'<div style="padding:8px 0"><strong style="color:var(--text)">{uname_p}</strong><div style="font-size:12px;color:var(--muted)">{email}</div></div>', unsafe_allow_html=True)
-                    if c2a.button("✅ قبول", key=f"acc_{uname_p}"):
+                    if c2a.button("✅ قبول", key=f"tacc_{uname_p}"):
                         users = load_json(USERS_FILE,{})
                         users[uname_p]=info["password"]
                         save_json(USERS_FILE,users)
@@ -1142,7 +1369,7 @@ if is_admin and len(tabs) > 4:
                         save_json(PENDING_FILE,pending)
                         st.success(f"تم قبول {uname_p}")
                         st.rerun()
-                    if c3a.button("❌ رفض", key=f"rej_{uname_p}"):
+                    if c3a.button("❌ رفض", key=f"trej_{uname_p}"):
                         pending.pop(uname_p)
                         save_json(PENDING_FILE,pending)
                         st.warning(f"تم رفض {uname_p}")
@@ -1162,8 +1389,8 @@ if is_admin and len(tabs) > 4:
             if not deletable:
                 st.info("لا يوجد مستخدمون قابلون للحذف")
             else:
-                del_u = st.selectbox("اختر المستخدم", deletable, key="del_user_sel")
-                if st.button("🗑️ حذف", key="del_user_btn", type="primary"):
+                del_u = st.selectbox("اختر المستخدم", deletable, key="tdel_user_sel")
+                if st.button("🗑️ حذف", key="tdel_user_btn", type="primary"):
                     users_saved.pop(del_u,None)
                     save_json(USERS_FILE,users_saved)
                     st.success(f"تم حذف المستخدم: {del_u}")
