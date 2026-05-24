@@ -97,14 +97,27 @@ html,body,[class*="css"],.stApp{background:var(--bg)!important;color:var(--text)
 .kpi-lbl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
 .kpi-card.c-gold .kpi-val{color:var(--gold)}.kpi-card.c-blue .kpi-val{color:var(--blue)}.kpi-card.c-green .kpi-val{color:var(--green)}.kpi-card.c-purple .kpi-val{color:var(--purple)}.kpi-card.c-red .kpi-val{color:var(--red)}.kpi-card.c-orange .kpi-val{color:var(--orange)}
 .section-hd{font-size:13px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:10px;margin:24px 0 16px;display:flex;align-items:center;gap:8px}
-/* ══ INSTITUTION CARD — clickable, no button ══ */
-.inst-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:12px;cursor:pointer;transition:all .25s ease;position:relative;overflow:hidden;user-select:none}
+/* ══ INSTITUTION CARD — fully clickable via button overlay ══ */
+.inst-card-wrap{position:relative;margin-bottom:10px}
+.inst-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;cursor:pointer;transition:all .25s ease;position:relative;overflow:hidden;user-select:none}
 .inst-card:hover{border-color:var(--gold);transform:translateX(-4px);background:var(--surface2);box-shadow:0 4px 24px rgba(201,168,76,.12)}
-.inst-card:active{transform:translateX(-2px) scale(0.995)}
 .inst-card::before{content:'';position:absolute;right:0;top:0;bottom:0;width:3px}
 .inst-card.ibtidai::before{background:var(--blue)}.inst-card.idadi::before{background:var(--green)}.inst-card.thanawi::before{background:var(--purple)}.inst-card.other::before{background:var(--muted)}
-.inst-card-arrow{position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--gold);opacity:0;transition:opacity .2s ease,transform .2s ease}
+.inst-card-arrow{position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--gold);opacity:0;transition:opacity .2s,transform .2s}
 .inst-card:hover .inst-card-arrow{opacity:1;transform:translateY(-50%) translateX(-4px)}
+/* زر Streamlit مخفي يغطي البطاقة بالكامل */
+.inst-card-wrap > div[data-testid="stButton"] > button{
+  position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;
+  width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important;
+  z-index:10!important;border-radius:var(--radius)!important;margin:0!important;padding:0!important;
+}
+/* نتائج البحث الجانبي — نفس المبدأ */
+.sb-card-wrap{position:relative;margin-bottom:6px}
+.sb-card-wrap > div[data-testid="stButton"] > button{
+  position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;
+  width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important;
+  z-index:10!important;border-radius:10px!important;margin:0!important;padding:0!important;
+}
 .inst-name{font-size:15px;font-weight:800;color:var(--text);margin-bottom:4px}
 .inst-meta{font-size:12px;color:var(--muted)}
 .chip{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:3px;letter-spacing:.3px}
@@ -132,6 +145,30 @@ html,body,[class*="css"],.stApp{background:var(--bg)!important;color:var(--text)
 .expansion-card{background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.3);border-radius:10px;padding:12px 16px;margin-bottom:8px}
 .newbuild-card{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:8px}
 .report-prio-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px}
+
+/* ══ CARD BUTTON OVERLAY — الزر يغطي البطاقة كاملاً بشفافية ══ */
+.card-wrap{position:relative;margin-bottom:12px}
+.card-wrap .stButton{position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:10!important;opacity:0!important}
+.card-wrap .stButton>button{position:absolute!important;top:0!important;left:0!important;width:100%!important;height:100%!important;cursor:pointer!important;border-radius:var(--radius)!important;background:transparent!important;border:none!important;padding:0!important;margin:0!important}
+.card-wrap .inst-card{margin-bottom:0!important}
+
+/* ══ زر الرجوع للرئيسية ══ */
+.home-btn-wrap .stButton>button{
+  background:linear-gradient(135deg,rgba(201,168,76,.12),rgba(201,168,76,.06))!important;
+  border:1px solid rgba(201,168,76,.35)!important;
+  color:var(--gold)!important;
+  font-size:15px!important;
+  padding:14px 24px!important;
+  border-radius:14px!important;
+  font-weight:800!important;
+  margin-top:28px!important;
+  letter-spacing:.5px
+}
+.home-btn-wrap .stButton>button:hover{
+  background:rgba(201,168,76,.2)!important;
+  box-shadow:0 0 24px rgba(201,168,76,.2)!important;
+  transform:translateY(-1px)!important
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -247,44 +284,62 @@ def get_overflow_suggestions(df_scope, surch_row, radius_km=2.0):
 def get_expansion_feasibility(row):
     """
     يحلل إمكانية التوسيع داخل نفس المؤسسة المكتظة.
-    يُرجع dict يحتوي على: قابلية التوسيع، النسبة، السبب.
+    يُرجع dict يحتوي على: قابلية التوسيع، الأسباب الموضحة بالمؤشرات، الطاقة الإضافية.
     """
     ns      = int(row.get("_ns", 0))
     nc      = int(row.get("_nc", 0))
     elev    = int(row.get("_elev", 0))
+    taux    = row.get("_taux", None)
+    density = row.get("_density", None)
+    thresh  = row.get("_thresh", 30)
     annexes = si(row.get(COL.get("annexes", ""), 0))
     sport   = si(row.get(COL.get("sport", ""), 0))
+    cat     = row.get("_cat", "other")
+    yr      = row.get("_yr_constr", None)
 
-    # حجرات شاغرة = حجرات - أقسام مستعملة
-    free_rooms = max(0, ns - nc)
-    # تقدير الطاقة الإضافية: كل حجرة تستوعب قسماً من 30 تلميذاً (ابتدائي) أو 36 (آخر)
-    cat = row.get("_cat", "other")
     cap_per_room = 30 if cat == "ibtidai" else 36
+    free_rooms   = max(0, ns - nc)
+    expansion_capacity = free_rooms * cap_per_room
 
-    reasons = []
+    # ── سبب الاكتظاظ بالمؤشرات ──
+    why_parts = []
+    if taux is not None:
+        why_parts.append(f"معدل الاشغال = {taux} (الحد 1.0 → كل حجرة تستضيف {round(taux,2)} قسم)")
+    if density is not None:
+        over = round(density - thresh, 1)
+        why_parts.append(f"كثافة القسم = {density} تلميذ/قسم (الحد {thresh} → فائض {over} تلميذ/قسم)")
+    if elev and nc:
+        needed_rooms = math.ceil(elev / cap_per_room)
+        shortfall    = max(0, needed_rooms - ns)
+        if shortfall > 0:
+            why_parts.append(f"عجز في الحجرات: يحتاج {needed_rooms} حجرة، موجود {ns} → نقص {shortfall} حجرة")
+
+    # ── خيارات التوسيع ──
+    expand_options = []
     can_expand = False
-    expansion_capacity = 0
 
     if free_rooms > 0:
         can_expand = True
-        expansion_capacity = free_rooms * cap_per_room
-        reasons.append(f"✅ يوجد {free_rooms} حجرة غير مستغلة تستوعب ~{expansion_capacity} تلميذاً إضافياً")
+        expand_options.append(f"✅ {free_rooms} حجرة غير مستغلة → تستوعب ~{expansion_capacity} تلميذاً إضافياً")
+    else:
+        expand_options.append("❌ لا توجد حجرات شاغرة (جميع الحجرات مشغولة بأقسام)")
 
     if annexes > 0:
         can_expand = True
-        reasons.append(f"✅ توجد {annexes} ملحقة يمكن تحويلها لأقسام دراسية")
+        expand_options.append(f"✅ {annexes} ملحقة قابلة للتحويل إلى أقسام دراسية")
 
     if sport > 1:
-        reasons.append(f"ℹ️ يوجد {sport} ملاعب — يمكن دراسة استثمار مساحة منها")
+        expand_options.append(f"ℹ️ {sport} ملاعب — يمكن دراسة استثمار جزء منها في بناء إضافي")
 
-    if not can_expand:
-        reasons.append("❌ لا توجد حجرات شاغرة ولا ملحقات متاحة للتوسيع الداخلي")
+    if yr and yr < 1990:
+        expand_options.append(f"⚠️ المبنى قديم (بُني {yr}) — يُوصى بتقييم إمكانية التجديد والتوسعة")
 
     return {
         "can_expand": can_expand,
         "free_rooms": free_rooms,
         "expansion_capacity": expansion_capacity,
-        "reasons": reasons,
+        "why_parts": why_parts,
+        "expand_options": expand_options,
     }
 
 
@@ -942,7 +997,7 @@ with tabs[0]:
                             st.markdown(f'<div class="detail-row"><span class="detail-key"><span class="chip chip-blue">{fn}</span></span><span class="detail-val" style="font-size:11px">📍{fd}كم · {fe:,}ت</span></div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                # ══ FIX 2: اقتراحات مُحسَّنة — توسيع أولاً ثم بناء جديد ══
+                # ══ مقترحات معالجة الاكتظاظ — توسيع أولاً مع السبب ══
                 if row.get("_surch", False):
                     expand = get_expansion_feasibility(row)
                     sugg   = get_overflow_suggestions(df, row, 2.0)
@@ -950,18 +1005,32 @@ with tabs[0]:
                     st.markdown('<div class="surch-card">', unsafe_allow_html=True)
                     st.markdown('<div class="detail-title" style="color:#f87171">🔄 مقترحات معالجة الاكتظاظ</div>', unsafe_allow_html=True)
 
-                    # الأولوية 1: التوسيع الداخلي
+                    # ── سبب الاكتظاظ بالمؤشرات
+                    why_html = "".join([
+                        f'<div style="font-size:11px;color:#fbbf24;padding:3px 8px">📊 {w}</div>'
+                        for w in expand["why_parts"]
+                    ])
+                    st.markdown(f"""
+                    <div style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.2);
+                                border-radius:8px;padding:8px 10px;margin-bottom:12px">
+                      <div style="font-size:11px;font-weight:800;color:#fbbf24;margin-bottom:4px">
+                        🔍 سبب الاكتظاظ
+                      </div>
+                      {why_html}
+                    </div>""", unsafe_allow_html=True)
+
+                    # ── ① التوسيع الداخلي
                     st.markdown("""
                     <div style="font-size:11px;font-weight:800;color:#f97316;letter-spacing:.8px;
                                 margin-bottom:8px;padding:6px 10px;background:rgba(249,115,22,.08);
                                 border-radius:8px;border-right:3px solid #f97316">
                       ① الأولوية الأولى — التوسيع داخل نفس المؤسسة
                     </div>""", unsafe_allow_html=True)
-                    for reason in expand["reasons"]:
-                        color_r = "#34d399" if reason.startswith("✅") else ("#fb923c" if reason.startswith("ℹ️") else "#f87171")
-                        st.markdown(f'<div style="font-size:12px;color:{color_r};padding:4px 8px;margin-bottom:4px">{reason}</div>', unsafe_allow_html=True)
+                    for opt in expand["expand_options"]:
+                        c_opt = "#34d399" if opt.startswith("✅") else ("#fb923c" if opt.startswith("ℹ️") else ("#fbbf24" if opt.startswith("⚠️") else "#f87171"))
+                        st.markdown(f'<div style="font-size:12px;color:{c_opt};padding:4px 8px;margin-bottom:3px">{opt}</div>', unsafe_allow_html=True)
 
-                    # الأولوية 2: تحويل إلى مؤسسة قريبة
+                    # ── ② تحويل إلى مؤسسة قريبة
                     st.markdown("""
                     <div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.8px;
                                 margin-top:12px;margin-bottom:8px;padding:6px 10px;
@@ -984,7 +1053,7 @@ with tabs[0]:
                               </div>
                             </div>""", unsafe_allow_html=True)
 
-                    # الأولوية 3: بناء جديد (فقط إذا فشل كل ما قبله)
+                    # ── ③ إحداث جديد — ملاذ أخير فقط
                     if not expand["can_expand"] and sugg.empty:
                         st.markdown("""
                         <div style="font-size:11px;font-weight:800;color:#f87171;letter-spacing:.8px;
@@ -994,13 +1063,14 @@ with tabs[0]:
                         </div>""", unsafe_allow_html=True)
                         st.markdown("""
                         <div style="font-size:12px;color:#f87171;padding:4px 8px">
-                          ❌ لا يوجد توسيع داخلي ممكن، ولا مؤسسة بديلة قريبة.<br>
-                          <span style="color:#fb923c">يُوصى بدراسة إحداث مؤسسة جديدة في المنطقة.</span>
+                          ❌ استُنفدت جميع الخيارات: لا توسيع داخلي ممكن، ولا مؤسسة بديلة قريبة.<br>
+                          <span style="color:#fb923c">يُوصى بدراسة جدية لإحداث مؤسسة جديدة في هذه المنطقة.</span>
                         </div>""", unsafe_allow_html=True)
-                    elif not expand["can_expand"] and not sugg.empty:
+                    else:
                         st.markdown("""
-                        <div style="font-size:11px;color:#64748b;padding:4px 8px;margin-top:8px;font-style:italic">
-                          ℹ️ البناء الجديد غير مُستحسَن حالياً — يُفضَّل أولاً استنفاد خيارَي التوسيع والتحويل
+                        <div style="font-size:11px;color:#475569;padding:4px 8px;margin-top:10px;
+                                    border-top:1px solid var(--border);padding-top:8px;font-style:italic">
+                          🏗️ إحداث مؤسسة جديدة غير مُقترح حالياً — يُفضَّل استنفاد خيارَي التوسيع والتحويل أولاً
                         </div>""", unsafe_allow_html=True)
 
                     st.markdown('</div>', unsafe_allow_html=True)
@@ -1040,6 +1110,23 @@ with tabs[0]:
                 else:
                     st.map(pd.DataFrame({"lat":[lat],"lon":[lon]}), zoom=13)
 
+            # ══ زر الرجوع للصفحة الرئيسية (أسفل الصفحة) ══
+            st.markdown("""
+            <div style="height:32px"></div>
+            <div style="border-top:1px solid var(--border);padding-top:24px;margin-top:8px;text-align:center">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+                للعودة إلى قائمة المؤسسات
+              </div>
+            </div>""", unsafe_allow_html=True)
+            _hcol = st.columns([1,2,1])[1]
+            with _hcol:
+                st.markdown('<div class="home-btn-wrap">', unsafe_allow_html=True)
+                if st.button("🏠 الرجوع إلى الصفحة الرئيسية", key="home_btn_bottom"):
+                    st.session_state.selected_code = None
+                    st.session_state.view_level = "province" if st.session_state.sel_province else "global"
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
     else:
         # ══ FIX 1: قائمة المؤسسات — الضغط مباشرة بدون زر "عرض" منفصل ══
         q = st.session_state.inst_query.strip().lower()
@@ -1076,29 +1163,24 @@ with tabs[0]:
                 nc    = row.get("_nc",0)
                 surch = row.get("_surch",False)
 
-                # ── FIX 1 CORE: بطاقة قابلة للنقر مع زر Streamlit مخفي بالعرض الكامل ──
+                # ── FIX 1: البطاقة + زر شفاف يغطيها بالكامل (لا زر مرئي)
                 st.markdown(f"""
-                <div class="inst-card {cat}" id="card_{code}">
-                  <div class="inst-card-arrow">←</div>
-                  <div class="inst-name">{nm_ar}</div>
-                  <div class="inst-meta" style="margin-bottom:8px;font-style:italic">{nm_fr}</div>
-                  <span class="chip {CAT_CHIP.get(cat,'chip-gray')}">{CAT_LABEL.get(cat,'')}</span>
-                  <span class="chip chip-gray">{elev:,} تلميذ</span>
-                  <span class="chip chip-gray">{nc} قسم</span>
-                  {'<span class="chip chip-red">⚠ مكتظة</span>' if surch else ''}
-                  <span class="chip chip-gray" style="float:left;font-size:10px">{code}</span>
-                </div>""", unsafe_allow_html=True)
-
-                # زر Streamlit بعرض الكامل — يوفر وظيفة النقر
-                # نجعله مرئياً بـ CSS مخصص يجعله يبدو كجزء من البطاقة
-                if st.button(
-                    f"عرض تفاصيل: {nm_ar[:30]}",
-                    key=f"view_{code}",
-                    help="انقر لعرض التفاصيل الكاملة",
-                ):
+                <div class="card-wrap">
+                  <div class="inst-card {cat}">
+                    <div class="inst-card-arrow">←</div>
+                    <div class="inst-name">{nm_ar}</div>
+                    <div class="inst-meta" style="margin-bottom:8px;font-style:italic">{nm_fr}</div>
+                    <span class="chip {CAT_CHIP.get(cat,'chip-gray')}">{CAT_LABEL.get(cat,'')}</span>
+                    <span class="chip chip-gray">{elev:,} تلميذ</span>
+                    <span class="chip chip-gray">{nc} قسم</span>
+                    {'<span class="chip chip-red">⚠ مكتظة</span>' if surch else ''}
+                    <span class="chip chip-gray" style="float:left;font-size:10px">{code}</span>
+                  </div>""", unsafe_allow_html=True)
+                if st.button("​", key=f"view_{code}"):
                     st.session_state.selected_code = code
                     st.session_state.view_level    = "institution"
                     st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════
