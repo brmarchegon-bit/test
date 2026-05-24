@@ -364,7 +364,7 @@ def generate_pdf_report(kpis, province_name, df_scope):
     pdf.set_fill_color(8, 12, 20)
     pdf.set_font("Helvetica", "B", 18)
     pdf.set_text_color(201, 168, 76)
-    pdf.cell(0, 14, f"Rapport Educatif — {province_name}", ln=True, align="C")
+    pdf.cell(0, 14, f"Rapport Educatif - {province_name}", ln=True, align="C")
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(100, 116, 139)
     pdf.cell(0, 7, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True, align="C")
@@ -394,7 +394,7 @@ def generate_pdf_report(kpis, province_name, df_scope):
     if not surch_df.empty:
         pdf.set_font("Helvetica", "B", 13)
         pdf.set_text_color(180, 30, 30)
-        pdf.cell(0, 9, f"Etablissements Surpeuples — Priorite d'Expansion ({len(surch_df)})", ln=True)
+        pdf.cell(0, 9, f"Etablissements Surpeuples - Priorite d'Expansion ({len(surch_df)})", ln=True)
         pdf.set_text_color(30, 30, 30)
         pdf.set_font("Helvetica", "B", 9)
         widths = [30, 65, 22, 18, 18, 17]
