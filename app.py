@@ -97,10 +97,14 @@ html,body,[class*="css"],.stApp{background:var(--bg)!important;color:var(--text)
 .kpi-lbl{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
 .kpi-card.c-gold .kpi-val{color:var(--gold)}.kpi-card.c-blue .kpi-val{color:var(--blue)}.kpi-card.c-green .kpi-val{color:var(--green)}.kpi-card.c-purple .kpi-val{color:var(--purple)}.kpi-card.c-red .kpi-val{color:var(--red)}.kpi-card.c-orange .kpi-val{color:var(--orange)}
 .section-hd{font-size:13px;font-weight:800;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:10px;margin:24px 0 16px;display:flex;align-items:center;gap:8px}
-.inst-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:12px;cursor:pointer;transition:all .22s ease;position:relative;overflow:hidden}
-.inst-card:hover{border-color:var(--gold);transform:translateX(-3px);background:var(--surface2)}
+/* ══ INSTITUTION CARD — clickable, no button ══ */
+.inst-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:12px;cursor:pointer;transition:all .25s ease;position:relative;overflow:hidden;user-select:none}
+.inst-card:hover{border-color:var(--gold);transform:translateX(-4px);background:var(--surface2);box-shadow:0 4px 24px rgba(201,168,76,.12)}
+.inst-card:active{transform:translateX(-2px) scale(0.995)}
 .inst-card::before{content:'';position:absolute;right:0;top:0;bottom:0;width:3px}
 .inst-card.ibtidai::before{background:var(--blue)}.inst-card.idadi::before{background:var(--green)}.inst-card.thanawi::before{background:var(--purple)}.inst-card.other::before{background:var(--muted)}
+.inst-card-arrow{position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--gold);opacity:0;transition:opacity .2s ease,transform .2s ease}
+.inst-card:hover .inst-card-arrow{opacity:1;transform:translateY(-50%) translateX(-4px)}
 .inst-name{font-size:15px;font-weight:800;color:var(--text);margin-bottom:4px}
 .inst-meta{font-size:12px;color:var(--muted)}
 .chip{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;margin:3px;letter-spacing:.3px}
@@ -122,8 +126,11 @@ html,body,[class*="css"],.stApp{background:var(--bg)!important;color:var(--text)
 .stat-bar-bg{background:var(--surface2);border-radius:99px;height:8px;overflow:hidden}
 .stat-bar-fill{height:100%;border-radius:99px;transition:width .4s ease}
 .admin-pending-card{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:14px 18px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+/* ══ OVERCROWDING SUGGESTIONS — توسيع أولاً ══ */
 .surch-card{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:14px 18px;margin-bottom:10px}
 .sugg-card{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:10px;padding:10px 14px;margin-bottom:6px}
+.expansion-card{background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.3);border-radius:10px;padding:12px 16px;margin-bottom:8px}
+.newbuild-card{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-bottom:8px}
 .report-prio-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px}
 </style>
 """, unsafe_allow_html=True)
@@ -202,8 +209,8 @@ def get_feeders(df_scope, host_row, radius_km=2.0):
     host_lvl = FEED_LEVELS.get(host_cat, -1)
     if host_lvl <= 0 or not host_lat or not host_lon:
         return pd.DataFrame()
-    feeder_cats = [k for k, v in FEED_LEVELS.items() if v == host_lvl - 1]
-    candidates  = df_scope[df_scope["_cat"].isin(feeder_cats)].copy()
+    feeder_cats  = [k for k, v in FEED_LEVELS.items() if v == host_lvl - 1]
+    candidates   = df_scope[df_scope["_cat"].isin(feeder_cats)].copy()
     if candidates.empty:
         return pd.DataFrame()
     candidates["_dist"] = candidates.apply(
@@ -235,6 +242,50 @@ def get_overflow_suggestions(df_scope, surch_row, radius_km=2.0):
         if r["_lat"] and r["_lon"] else 999, axis=1
     )
     return candidates[candidates["_dist"] <= radius_km].sort_values("_dist")
+
+
+def get_expansion_feasibility(row):
+    """
+    يحلل إمكانية التوسيع داخل نفس المؤسسة المكتظة.
+    يُرجع dict يحتوي على: قابلية التوسيع، النسبة، السبب.
+    """
+    ns      = int(row.get("_ns", 0))
+    nc      = int(row.get("_nc", 0))
+    elev    = int(row.get("_elev", 0))
+    annexes = si(row.get(COL.get("annexes", ""), 0))
+    sport   = si(row.get(COL.get("sport", ""), 0))
+
+    # حجرات شاغرة = حجرات - أقسام مستعملة
+    free_rooms = max(0, ns - nc)
+    # تقدير الطاقة الإضافية: كل حجرة تستوعب قسماً من 30 تلميذاً (ابتدائي) أو 36 (آخر)
+    cat = row.get("_cat", "other")
+    cap_per_room = 30 if cat == "ibtidai" else 36
+
+    reasons = []
+    can_expand = False
+    expansion_capacity = 0
+
+    if free_rooms > 0:
+        can_expand = True
+        expansion_capacity = free_rooms * cap_per_room
+        reasons.append(f"✅ يوجد {free_rooms} حجرة غير مستغلة تستوعب ~{expansion_capacity} تلميذاً إضافياً")
+
+    if annexes > 0:
+        can_expand = True
+        reasons.append(f"✅ توجد {annexes} ملحقة يمكن تحويلها لأقسام دراسية")
+
+    if sport > 1:
+        reasons.append(f"ℹ️ يوجد {sport} ملاعب — يمكن دراسة استثمار مساحة منها")
+
+    if not can_expand:
+        reasons.append("❌ لا توجد حجرات شاغرة ولا ملحقات متاحة للتوسيع الداخلي")
+
+    return {
+        "can_expand": can_expand,
+        "free_rooms": free_rooms,
+        "expansion_capacity": expansion_capacity,
+        "reasons": reasons,
+    }
 
 
 @st.cache_data(show_spinner=False)
@@ -271,8 +322,18 @@ def compute_advanced_kpis(df_hash):
     }
 
 
+# ══════════════════════════════════════════════════════
+#  FIX 3 — خريطة تعرض فقط روافد المؤسسة المحددة
+#  إذا لم تُحدَّد مؤسسة: تُعرض جميع المؤسسات بدون خطوط
+# ══════════════════════════════════════════════════════
 def build_basin_map_folium(df_scope, selected_code=None, radius_km=2.0, show_lines=True):
-    """بناء خريطة Folium مع خيوط الأحواض المدرسية."""
+    """
+    بناء خريطة Folium:
+    - إذا كانت هناك مؤسسة محددة (selected_code):
+        → تعرض روافدها فقط (إعدادية ← ابتدائيات / ثانوية ← إعداديات)
+    - إذا لا يوجد تحديد:
+        → تعرض جميع المؤسسات بنقاط بدون خطوط
+    """
     valid = df_scope[(df_scope["_lat"]!=0)&(df_scope["_lon"]!=0)]
     if valid.empty:
         return None
@@ -282,44 +343,91 @@ def build_basin_map_folium(df_scope, selected_code=None, radius_km=2.0, show_lin
                    tiles="CartoDB dark_matter")
     CAT_COLORS_F = {"ibtidai":"#3b82f6","idadi":"#10b981","thanawi":"#8b5cf6","other":"#64748b"}
 
-    # 1. خيوط الروافد
-    if show_lines:
-        hosts = df_scope[df_scope["_cat"].isin(["idadi","thanawi"]) &
-                         (df_scope["_lat"]!=0) & (df_scope["_lon"]!=0)]
-        for _, host in hosts.iterrows():
+    # ── وضع التركيز: مؤسسة محددة ──
+    if selected_code and show_lines:
+        sel_rows = df_scope[df_scope[COL["code"]].astype(str) == str(selected_code)]
+        if not sel_rows.empty:
+            host      = sel_rows.iloc[0]
+            host_lat  = host.get("_lat", 0)
+            host_lon  = host.get("_lon", 0)
+            host_cat  = host.get("_cat", "other")
+
             feeders = get_feeders(df_scope, host, radius_km)
+
+            # رسم خيوط الروافد فقط للمؤسسة المحددة
             for _, feeder in feeders.iterrows():
                 if feeder["_lat"] and feeder["_lon"]:
                     folium.PolyLine(
-                        locations=[[host["_lat"],host["_lon"]],[feeder["_lat"],feeder["_lon"]]],
-                        color="#c9a84c", weight=1.4, opacity=0.55,
+                        locations=[[host_lat, host_lon],[feeder["_lat"], feeder["_lon"]]],
+                        color="#c9a84c", weight=2.5, opacity=0.75,
                         tooltip=f"{feeder.get(COL['nom_ar'],'')} ← {host.get(COL['nom_ar'],'')}",
                     ).add_to(m)
 
-    # 2. نقاط المؤسسات
-    for _, row in valid.iterrows():
-        cat   = row.get("_cat", "other")
-        surch = row.get("_surch", False)
-        code  = str(row.get(COL["code"],""))
-        color = "#ef4444" if surch else CAT_COLORS_F.get(cat,"#64748b")
-        r     = 9 if code == str(selected_code) else 6
-        popup = folium.Popup(f"""
-            <div dir="rtl" style="font-family:Tajawal,sans-serif;min-width:200px;padding:4px">
-              <b style="font-size:14px">{row.get(COL['nom_ar'],'')}</b><br>
-              <span style="color:#888;font-size:12px">{CAT_LABEL.get(cat,'')}</span>
-              {'<span style="color:#ef4444"> ⚠ مكتظة</span>' if surch else ''}<br>
-              👨‍🎓 {int(row.get('_elev',0)):,} تلميذ | 📚 {int(row.get('_nc',0))} قسم<br>
-              {'<b>Taux: ' + str(row.get('_taux','')) + '</b>' if row.get('_taux') else ''}
-              {'<br>كثافة: '+str(row.get('_density',''))+' ت/قسم' if row.get('_density') else ''}
-            </div>""", max_width=260)
-        folium.CircleMarker(
-            location=[row["_lat"],row["_lon"]], radius=r,
-            color=color, fill=True, fill_color=color, fill_opacity=0.85,
-            popup=popup, tooltip=row.get(COL["nom_ar"],""),
-        ).add_to(m)
+            # نقطة المؤسسة المحددة (أكبر + مميزة)
+            if host_lat and host_lon:
+                popup_host = folium.Popup(f"""
+                    <div dir="rtl" style="font-family:Tajawal,sans-serif;min-width:200px;padding:4px">
+                      <b style="font-size:14px;color:#c9a84c">{host.get(COL['nom_ar'],'')}</b><br>
+                      <span style="color:#888;font-size:12px">{CAT_LABEL.get(host_cat,'')} — المؤسسة المحددة</span><br>
+                      👨‍🎓 {int(host.get('_elev',0)):,} تلميذ | 📚 {int(host.get('_nc',0))} قسم<br>
+                      <b>روافد: {len(feeders)} مؤسسة ضمن {radius_km} كم</b>
+                    </div>""", max_width=260)
+                folium.CircleMarker(
+                    location=[host_lat, host_lon], radius=13,
+                    color="#c9a84c", fill=True, fill_color="#c9a84c", fill_opacity=0.95,
+                    popup=popup_host, tooltip=host.get(COL["nom_ar"],""),
+                ).add_to(m)
 
-    # 3. Legend
-    legend = """
+            # نقاط الروافد
+            for _, feeder in feeders.iterrows():
+                if feeder["_lat"] and feeder["_lon"]:
+                    fcat  = feeder.get("_cat","other")
+                    fcolor = CAT_COLORS_F.get(fcat, "#64748b")
+                    popup_f = folium.Popup(f"""
+                        <div dir="rtl" style="font-family:Tajawal,sans-serif;min-width:180px;padding:4px">
+                          <b>{feeder.get(COL['nom_ar'],'')}</b><br>
+                          <span style="color:#888;font-size:12px">{CAT_LABEL.get(fcat,'')} — رافدة</span><br>
+                          📍 {feeder.get('_dist',0)} كم | 👨‍🎓 {int(feeder.get('_elev',0)):,} تلميذ
+                        </div>""", max_width=220)
+                    folium.CircleMarker(
+                        location=[feeder["_lat"], feeder["_lon"]], radius=8,
+                        color=fcolor, fill=True, fill_color=fcolor, fill_opacity=0.85,
+                        popup=popup_f, tooltip=feeder.get(COL["nom_ar"],""),
+                    ).add_to(m)
+
+            # تمركز الخريطة على المؤسسة المحددة
+            if host_lat and host_lon:
+                m.location = [host_lat, host_lon]
+                m.zoom_start = 13
+
+    else:
+        # ── وضع الاستعراض العام: جميع المؤسسات بدون خطوط ──
+        for _, row in valid.iterrows():
+            cat   = row.get("_cat", "other")
+            surch = row.get("_surch", False)
+            code  = str(row.get(COL["code"],""))
+            color = "#ef4444" if surch else CAT_COLORS_F.get(cat,"#64748b")
+            r_size = 7 if code == str(selected_code) else 5
+            popup = folium.Popup(f"""
+                <div dir="rtl" style="font-family:Tajawal,sans-serif;min-width:200px;padding:4px">
+                  <b style="font-size:14px">{row.get(COL['nom_ar'],'')}</b><br>
+                  <span style="color:#888;font-size:12px">{CAT_LABEL.get(cat,'')}</span>
+                  {'<span style="color:#ef4444"> ⚠ مكتظة</span>' if surch else ''}<br>
+                  👨‍🎓 {int(row.get('_elev',0)):,} تلميذ | 📚 {int(row.get('_nc',0))} قسم
+                </div>""", max_width=260)
+            folium.CircleMarker(
+                location=[row["_lat"],row["_lon"]], radius=r_size,
+                color=color, fill=True, fill_color=color, fill_opacity=0.85,
+                popup=popup, tooltip=row.get(COL["nom_ar"],""),
+            ).add_to(m)
+
+    # دليل الخريطة
+    legend_lines = (
+        "<div style='margin-top:8px;font-size:11px;color:#c9a84c;border-top:1px solid rgba(255,255,255,.1);padding-top:6px'>"
+        + ("— خيوط الروافد للمؤسسة المحددة" if (selected_code and show_lines) else "نقاط المؤسسات (لا روافد — اختر مؤسسة)")
+        + "</div>"
+    )
+    legend = f"""
     <div style="position:fixed;bottom:30px;right:30px;z-index:9999;
                 background:rgba(8,12,20,0.93);border:1px solid rgba(201,168,76,.3);
                 border-radius:12px;padding:14px 18px;font-family:Tajawal,sans-serif;
@@ -329,9 +437,8 @@ def build_basin_map_folium(df_scope, selected_code=None, radius_km=2.0, show_lin
       <div style="margin-bottom:3px"><span style="color:#10b981;font-size:16px">●</span> إعدادية</div>
       <div style="margin-bottom:3px"><span style="color:#8b5cf6;font-size:16px">●</span> تأهيلية</div>
       <div style="margin-bottom:3px"><span style="color:#ef4444;font-size:16px">●</span> مكتظة</div>
-      <div style="margin-top:8px;font-size:11px;color:#c9a84c;border-top:1px solid rgba(255,255,255,.1);padding-top:6px">
-        — خيوط الروافد (≤ نصف القطر المحدد)
-      </div>
+      <div style="margin-bottom:3px"><span style="color:#c9a84c;font-size:16px">●</span> المؤسسة المحددة</div>
+      {legend_lines}
     </div>"""
     m.get_root().html.add_child(folium.Element(legend))
     return m
@@ -492,7 +599,6 @@ def load_data():
     df["_surch"]   = df["_taux"].apply(lambda t: t is not None and t > 1.9)
     df["_density"] = df.apply(lambda r: round(r["_elev"]/r["_nc"], 1) if r["_nc"] > 0 else None, axis=1)
 
-    # كثافة حسب السلك: ابتدائي>30 / إعدادي+ثانوي>36
     df["_thresh"]      = df["_cat"].apply(lambda c: 30 if c == "ibtidai" else 36)
     df["_surch_cycle"] = df.apply(lambda r: bool(r["_density"] and r["_density"] > r["_thresh"]), axis=1)
 
@@ -558,7 +664,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ══ ADMIN BUTTON (top right, admin only) ══
+# ══ ADMIN BUTTON ══
 if is_admin:
     admin_col = st.columns([6, 1])[1]
     with admin_col:
@@ -579,7 +685,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ══ ADMIN PANEL SIDEBAR (للمسؤول فقط عند الفتح) ══
+# ══ ADMIN PANEL SIDEBAR ══
 if is_admin and st.session_state.show_admin_panel:
     with st.sidebar:
         st.markdown("""
@@ -713,6 +819,7 @@ with st.sidebar:
                 lbl      = CAT_LABEL.get(cat, "")
                 is_sel   = st.session_state.selected_code == code
                 border   = "border-color:var(--gold)" if is_sel else ""
+                # ── FIX 1: الضغط على نتيجة البحث مباشرة (زر مخفي تحت البطاقة)
                 st.markdown(f"""
                 <div style="padding:2px 8px">
                   <div style="background:var(--surface2);border:1px solid var(--border2);{border};
@@ -725,7 +832,7 @@ with st.sidebar:
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button("عرض ←", key=f"sb_sel_{code}"):
+                if st.button(f"← {name[:20]}", key=f"sb_sel_{code}", help="اضغط لعرض التفاصيل"):
                     st.session_state.selected_code = code
                     st.session_state.inst_query    = search_val
                     st.session_state.view_level    = "institution"
@@ -746,9 +853,9 @@ if is_admin:
 
 tabs = st.tabs(tabs_labels)
 
-# ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
 #  TAB 0 — INSTITUTIONS
-# ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
 with tabs[0]:
     if st.session_state.sel_province:
         df_view = df[df[COL["province"]]==st.session_state.sel_province]
@@ -820,7 +927,7 @@ with tabs[0]:
                     </div>""", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                # الروافد المباشرة للمؤسسة
+                # الروافد المباشرة
                 if cat in ("idadi","thanawi"):
                     feeders = get_feeders(df, row, 2.0)
                     st.markdown('<div class="detail-box">', unsafe_allow_html=True)
@@ -835,13 +942,34 @@ with tabs[0]:
                             st.markdown(f'<div class="detail-row"><span class="detail-key"><span class="chip chip-blue">{fn}</span></span><span class="detail-val" style="font-size:11px">📍{fd}كم · {fe:,}ت</span></div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                # اقتراحات التحويل إن كانت مكتظة
+                # ══ FIX 2: اقتراحات مُحسَّنة — توسيع أولاً ثم بناء جديد ══
                 if row.get("_surch", False):
-                    sugg = get_overflow_suggestions(df, row, 2.0)
+                    expand = get_expansion_feasibility(row)
+                    sugg   = get_overflow_suggestions(df, row, 2.0)
+
                     st.markdown('<div class="surch-card">', unsafe_allow_html=True)
-                    st.markdown('<div class="detail-title" style="color:#f87171">🔄 اقتراحات تحويل التلاميذ</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="detail-title" style="color:#f87171">🔄 مقترحات معالجة الاكتظاظ</div>', unsafe_allow_html=True)
+
+                    # الأولوية 1: التوسيع الداخلي
+                    st.markdown("""
+                    <div style="font-size:11px;font-weight:800;color:#f97316;letter-spacing:.8px;
+                                margin-bottom:8px;padding:6px 10px;background:rgba(249,115,22,.08);
+                                border-radius:8px;border-right:3px solid #f97316">
+                      ① الأولوية الأولى — التوسيع داخل نفس المؤسسة
+                    </div>""", unsafe_allow_html=True)
+                    for reason in expand["reasons"]:
+                        color_r = "#34d399" if reason.startswith("✅") else ("#fb923c" if reason.startswith("ℹ️") else "#f87171")
+                        st.markdown(f'<div style="font-size:12px;color:{color_r};padding:4px 8px;margin-bottom:4px">{reason}</div>', unsafe_allow_html=True)
+
+                    # الأولوية 2: تحويل إلى مؤسسة قريبة
+                    st.markdown("""
+                    <div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.8px;
+                                margin-top:12px;margin-bottom:8px;padding:6px 10px;
+                                background:rgba(59,130,246,.08);border-radius:8px;border-right:3px solid #3b82f6">
+                      ② الأولوية الثانية — تحويل التلاميذ إلى مؤسسة قريبة
+                    </div>""", unsafe_allow_html=True)
                     if sugg.empty:
-                        st.markdown('<div style="color:#f87171;font-size:12px">❌ لا توجد مؤسسات بديلة قريبة — يُوصى بإحداث مؤسسة جديدة</div>', unsafe_allow_html=True)
+                        st.markdown('<div style="color:#64748b;font-size:12px;padding:4px 8px">لا توجد مؤسسات من نفس السلك بطاقة فائضة ضمن 2 كم</div>', unsafe_allow_html=True)
                     else:
                         for _, s in sugg.head(4).iterrows():
                             sn   = s.get(COL["nom_ar"],s.get(COL["nom_fr"],""))
@@ -855,6 +983,26 @@ with tabs[0]:
                                 📍 {sd} كم &nbsp;|&nbsp; Taux: {st_v} &nbsp;|&nbsp; +{free} حجرة متاحة
                               </div>
                             </div>""", unsafe_allow_html=True)
+
+                    # الأولوية 3: بناء جديد (فقط إذا فشل كل ما قبله)
+                    if not expand["can_expand"] and sugg.empty:
+                        st.markdown("""
+                        <div style="font-size:11px;font-weight:800;color:#f87171;letter-spacing:.8px;
+                                    margin-top:12px;margin-bottom:8px;padding:6px 10px;
+                                    background:rgba(239,68,68,.08);border-radius:8px;border-right:3px solid #ef4444">
+                          ③ الملاذ الأخير — إحداث مؤسسة جديدة
+                        </div>""", unsafe_allow_html=True)
+                        st.markdown("""
+                        <div style="font-size:12px;color:#f87171;padding:4px 8px">
+                          ❌ لا يوجد توسيع داخلي ممكن، ولا مؤسسة بديلة قريبة.<br>
+                          <span style="color:#fb923c">يُوصى بدراسة إحداث مؤسسة جديدة في المنطقة.</span>
+                        </div>""", unsafe_allow_html=True)
+                    elif not expand["can_expand"] and not sugg.empty:
+                        st.markdown("""
+                        <div style="font-size:11px;color:#64748b;padding:4px 8px;margin-top:8px;font-style:italic">
+                          ℹ️ البناء الجديد غير مُستحسَن حالياً — يُفضَّل أولاً استنفاد خيارَي التوسيع والتحويل
+                        </div>""", unsafe_allow_html=True)
+
                     st.markdown('</div>', unsafe_allow_html=True)
 
             with c2:
@@ -893,6 +1041,7 @@ with tabs[0]:
                     st.map(pd.DataFrame({"lat":[lat],"lon":[lon]}), zoom=13)
 
     else:
+        # ══ FIX 1: قائمة المؤسسات — الضغط مباشرة بدون زر "عرض" منفصل ══
         q = st.session_state.inst_query.strip().lower()
         df_show = df_view
         if q:
@@ -916,32 +1065,45 @@ with tabs[0]:
             if cat_filter != "الكل": df_show = df_show[df_show["_cat"]==cat_map_rev.get(cat_filter,"")]
             if only_surch: df_show = df_show[df_show["_surch"]]
             if only_pion:  df_show = df_show[df_show[COL["pioneer"]].apply(lambda x: str(x).strip() not in ["","0","Non","non"])]
-            st.markdown(f'<div style="font-size:12px;color:var(--muted);margin-bottom:14px">{len(df_show)} نتيجة</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size:12px;color:var(--muted);margin-bottom:14px">{len(df_show)} نتيجة — <span style="color:var(--gold)">انقر على المؤسسة للتفاصيل</span></div>', unsafe_allow_html=True)
+
             for _, row in df_show.head(50).iterrows():
-                code=str(row.get(COL["code"],"")); nm_ar=str(row.get(COL["nom_ar"],"")); nm_fr=str(row.get(COL["nom_fr"],""))
-                cat=row.get("_cat","other"); elev=row.get("_elev",0); nc=row.get("_nc",0); surch=row.get("_surch",False)
-                c1b, c2b = st.columns([6,1])
-                with c1b:
-                    st.markdown(f"""
-                    <div class="inst-card {cat}">
-                      <div class="inst-name">{nm_ar}</div>
-                      <div class="inst-meta" style="margin-bottom:8px;font-style:italic">{nm_fr}</div>
-                      <span class="chip {CAT_CHIP.get(cat,'chip-gray')}">{CAT_LABEL.get(cat,'')}</span>
-                      <span class="chip chip-gray">{elev:,} تلميذ</span>
-                      <span class="chip chip-gray">{nc} قسم</span>
-                      {'<span class="chip chip-red">⚠ مكتظة</span>' if surch else ''}
-                      <span class="chip chip-gray" style="float:left;font-size:10px">{code}</span>
-                    </div>""", unsafe_allow_html=True)
-                with c2b:
-                    if st.button("عرض ←", key=f"view_{code}"):
-                        st.session_state.selected_code = code
-                        st.session_state.view_level    = "institution"
-                        st.rerun()
+                code  = str(row.get(COL["code"],""))
+                nm_ar = str(row.get(COL["nom_ar"],""))
+                nm_fr = str(row.get(COL["nom_fr"],""))
+                cat   = row.get("_cat","other")
+                elev  = row.get("_elev",0)
+                nc    = row.get("_nc",0)
+                surch = row.get("_surch",False)
+
+                # ── FIX 1 CORE: بطاقة قابلة للنقر مع زر Streamlit مخفي بالعرض الكامل ──
+                st.markdown(f"""
+                <div class="inst-card {cat}" id="card_{code}">
+                  <div class="inst-card-arrow">←</div>
+                  <div class="inst-name">{nm_ar}</div>
+                  <div class="inst-meta" style="margin-bottom:8px;font-style:italic">{nm_fr}</div>
+                  <span class="chip {CAT_CHIP.get(cat,'chip-gray')}">{CAT_LABEL.get(cat,'')}</span>
+                  <span class="chip chip-gray">{elev:,} تلميذ</span>
+                  <span class="chip chip-gray">{nc} قسم</span>
+                  {'<span class="chip chip-red">⚠ مكتظة</span>' if surch else ''}
+                  <span class="chip chip-gray" style="float:left;font-size:10px">{code}</span>
+                </div>""", unsafe_allow_html=True)
+
+                # زر Streamlit بعرض الكامل — يوفر وظيفة النقر
+                # نجعله مرئياً بـ CSS مخصص يجعله يبدو كجزء من البطاقة
+                if st.button(
+                    f"عرض تفاصيل: {nm_ar[:30]}",
+                    key=f"view_{code}",
+                    help="انقر لعرض التفاصيل الكاملة",
+                ):
+                    st.session_state.selected_code = code
+                    st.session_state.view_level    = "institution"
+                    st.rerun()
 
 
-# ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
 #  TAB 1 — STATISTICS
-# ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
 with tabs[1]:
     if st.session_state.sel_province:
         df_stat = df[df[COL["province"]]==st.session_state.sel_province]
@@ -1002,38 +1164,67 @@ with tabs[1]:
                   <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:{pct}%;background:{color}"></div></div>
                 </div>""", unsafe_allow_html=True)
 
-    # اقتراحات التحويل
+    # ══ FIX 2: اقتراحات التحويل في الإحصائيات — توسيع أولاً ══
     surch_df = df_stat[df_stat["_surch"]].copy()
     if not surch_df.empty:
-        st.markdown('<div class="section-hd">🔄 اقتراحات تحويل التلاميذ — المكتظة + البديل القريب</div>', unsafe_allow_html=True)
-        st.caption("فقط المؤسسات التي يوجد بجانبها مؤسسة من نفس السلك بطاقة فائضة ضمن 2 كم")
-        found_any = False
+        st.markdown('<div class="section-hd">🔄 تحليل الاكتظاظ — توسيع ثم تحويل</div>', unsafe_allow_html=True)
+        st.caption("لكل مؤسسة مكتظة: أولاً التوسيع الداخلي، ثم التحويل إلى مؤسسة قريبة، وأخيراً البناء الجديد")
         for _, srow in surch_df.head(15).iterrows():
-            sugg = get_overflow_suggestions(df_stat, srow, 2.0)
-            if sugg.empty: continue
-            found_any = True
-            sname = srow.get(COL["nom_ar"], srow.get(COL["nom_fr"],""))
+            expand = get_expansion_feasibility(srow)
+            sugg   = get_overflow_suggestions(df_stat, srow, 2.0)
+            sname  = srow.get(COL["nom_ar"], srow.get(COL["nom_fr"],""))
+
+            # تحديد الحالة الإجمالية
+            if expand["can_expand"]:
+                overall_color = "#f97316"
+                overall_label = "🔧 قابلة للتوسيع الداخلي"
+            elif not sugg.empty:
+                overall_color = "#3b82f6"
+                overall_label = "🔄 يمكن التحويل"
+            else:
+                overall_color = "#ef4444"
+                overall_label = "🏗️ تحتاج مؤسسة جديدة"
+
             st.markdown(f"""
             <div class="surch-card">
-              <div style="font-size:14px;font-weight:800;color:#f87171;margin-bottom:10px">
-                ⚠ {sname}
-                <span style="font-size:11px;color:var(--muted);font-weight:500;margin-right:10px">
-                  Taux:{srow.get('_taux','')} | {int(srow.get('_elev',0)):,} تلميذ
-                </span>
+              <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+                <div style="font-size:14px;font-weight:800;color:#f87171">
+                  ⚠ {sname}
+                  <span style="font-size:11px;color:var(--muted);font-weight:500;margin-right:8px">
+                    Taux:{srow.get('_taux','')} | {int(srow.get('_elev',0)):,} تلميذ
+                  </span>
+                </div>
+                <span style="font-size:12px;color:{overall_color};font-weight:700">{overall_label}</span>
               </div>""", unsafe_allow_html=True)
-            for _, s in sugg.head(3).iterrows():
-                sn=s.get(COL["nom_ar"],s.get(COL["nom_fr"],"")); sd=round(s.get("_dist",0),2)
-                free=max(0,int(s.get("_ns",0))-int(s.get("_nc",0)))
-                st.markdown(f"""
-                <div class="sugg-card">
-                  <span class="chip chip-green">✅ {sn}</span>
-                  <span class="chip chip-gray">📍 {sd} كم</span>
-                  <span class="chip chip-blue">Taux: {s.get('_taux','')}</span>
-                  <span class="chip chip-purple">+{free} حجرة فائضة</span>
+
+            # ① التوسيع
+            st.markdown('<div style="font-size:11px;font-weight:700;color:#f97316;margin-bottom:4px">① توسيع داخلي</div>', unsafe_allow_html=True)
+            for r in expand["reasons"]:
+                rcolor = "#34d399" if r.startswith("✅") else ("#fb923c" if r.startswith("ℹ️") else "#64748b")
+                st.markdown(f'<div style="font-size:11px;color:{rcolor};padding:2px 8px">{r}</div>', unsafe_allow_html=True)
+
+            # ② تحويل
+            if not sugg.empty:
+                st.markdown('<div style="font-size:11px;font-weight:700;color:#60a5fa;margin:8px 0 4px">② تحويل إلى مؤسسة قريبة</div>', unsafe_allow_html=True)
+                for _, s in sugg.head(2).iterrows():
+                    sn=s.get(COL["nom_ar"],s.get(COL["nom_fr"],"")); sd=round(s.get("_dist",0),2)
+                    free=max(0,int(s.get("_ns",0))-int(s.get("_nc",0)))
+                    st.markdown(f"""
+                    <div class="sugg-card">
+                      <span class="chip chip-green">✅ {sn}</span>
+                      <span class="chip chip-gray">📍 {sd} كم</span>
+                      <span class="chip chip-purple">+{free} حجرة</span>
+                    </div>""", unsafe_allow_html=True)
+
+            # ③ بناء جديد — فقط عند الضرورة
+            if not expand["can_expand"] and sugg.empty:
+                st.markdown("""
+                <div style="font-size:11px;font-weight:700;color:#f87171;margin:8px 0 4px">③ إحداث مؤسسة جديدة (ملاذ أخير)</div>
+                <div style="font-size:11px;color:#f87171;padding:2px 8px">
+                  ❌ لا توجد حلول داخلية أو قريبة — يُوصى بدراسة الإحداث
                 </div>""", unsafe_allow_html=True)
+
             st.markdown("</div>", unsafe_allow_html=True)
-        if not found_any:
-            st.info("✅ لا توجد مؤسسات مكتظة قابلة للتحويل في هذا النطاق")
 
     if not st.session_state.sel_province:
         st.markdown('<div class="section-hd">📍 توزيع حسب الإقليم / المديرية</div>', unsafe_allow_html=True)
@@ -1058,10 +1249,11 @@ with tabs[1]:
             </div>""", unsafe_allow_html=True)
 
 
-# ──────────────────────────────────────────────────────
-#  TAB 2 — CATCHMENT MAP (خريطة الأحواض)
-# ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
+#  TAB 2 — CATCHMENT MAP
+# ══════════════════════════════════════════════════════
 with tabs[2]:
+    # ══ FIX 3: خريطة ذكية — روافد المؤسسة المحددة فقط ══
     st.markdown('<div class="section-hd">🗺️ خريطة الأحواض المدرسية</div>', unsafe_allow_html=True)
 
     if st.session_state.sel_province:
@@ -1074,29 +1266,63 @@ with tabs[2]:
     if not st.session_state.sel_province:
         st.info("👈 اختر مديرية أولاً لعرض خريطة الأحواض المدرسية")
     else:
-        mc1, mc2, mc3, mc4 = st.columns(4)
-        show_lines     = mc1.checkbox("🔗 خيوط الروافد",   value=True, key="map_lines")
-        show_surch     = mc2.checkbox("⚠ المكتظة فقط",     value=False, key="map_surch_only")
-        radius_km      = mc3.slider("نصف القطر كم",         0.5, 5.0, 2.0, 0.5, key="map_radius")
-        cat_filter_map = mc4.selectbox("تصفية السلك", ["الكل","ابتدائية","إعدادية","تأهيلية"], key="map_cat")
+        selected_code_map = st.session_state.selected_code
 
-        df_map_use = df_map.copy()
+        # ── تعليمة السياق حسب وجود مؤسسة محددة أو لا ──
+        if selected_code_map:
+            sel_row_map = df[df[COL["code"]].astype(str) == str(selected_code_map)]
+            if not sel_row_map.empty:
+                sel_name = sel_row_map.iloc[0].get(COL["nom_ar"], "")
+                sel_cat  = sel_row_map.iloc[0].get("_cat","")
+                feeder_label = "الابتدائيات" if sel_cat == "idadi" else ("الإعداديات" if sel_cat == "thanawi" else "الروافد")
+                st.markdown(f"""
+                <div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.25);
+                            border-radius:12px;padding:12px 16px;margin-bottom:14px;
+                            display:flex;align-items:center;gap:12px">
+                  <div style="font-size:22px">🎯</div>
+                  <div>
+                    <div style="font-size:13px;font-weight:800;color:var(--gold)">وضع التركيز: {sel_name}</div>
+                    <div style="font-size:12px;color:var(--muted)">
+                      تعرض الخريطة فقط {feeder_label} الرافدة لهذه المؤسسة ضمن نصف القطر المحدد
+                    </div>
+                  </div>
+                </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background:rgba(100,116,139,.08);border:1px solid rgba(100,116,139,.2);
+                        border-radius:12px;padding:12px 16px;margin-bottom:14px">
+              <div style="font-size:12px;color:var(--muted)">
+                💡 اختر مؤسسة من تبويب <b style="color:var(--text)">المؤسسات</b> لعرض روافدها فقط على الخريطة.
+                حالياً: عرض عام لجميع المؤسسات بدون خيوط.
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+        mc1, mc2, mc3 = st.columns(3)
+        show_lines = mc1.checkbox("🔗 خيوط الروافد", value=bool(selected_code_map), key="map_lines",
+                                   disabled=not bool(selected_code_map),
+                                   help="الخيوط تعمل فقط عند تحديد مؤسسة")
+        radius_km  = mc2.slider("نصف القطر كم", 0.5, 5.0, 2.0, 0.5, key="map_radius")
+        show_surch = mc3.checkbox("⚠ إبراز المكتظة", value=False, key="map_surch_only")
+
+        df_map_use  = df_map.copy()
         if show_surch:
             df_map_use = df_map_use[df_map_use["_surch"]]
-        cat_map_rev2 = {"ابتدائية":"ibtidai","إعدادية":"idadi","تأهيلية":"thanawi"}
-        if cat_filter_map != "الكل":
-            df_map_use = df_map_use[df_map_use["_cat"]==cat_map_rev2.get(cat_filter_map,"")]
-
         df_map_valid = df_map_use[(df_map_use["_lat"]!=0)&(df_map_use["_lon"]!=0)]
 
         if df_map_valid.empty:
             st.warning("لا توجد بيانات جغرافية لهذا النطاق")
         else:
-            st.caption(f"📍 {len(df_map_valid):,} مؤسسة | خيوط الروافد: {'مفعّلة ≤ ' + str(radius_km) + ' كم' if show_lines else 'معطّلة'}")
+            mode_text = (
+                f"🎯 تركيز على المؤسسة المحددة — روافدها ضمن {radius_km} كم"
+                if (selected_code_map and show_lines)
+                else "🗺️ عرض عام — جميع المؤسسات بدون خيوط"
+            )
+            st.caption(f"📍 {len(df_map_valid):,} مؤسسة | {mode_text}")
             if HAS_FOLIUM:
+                # نمرر df_map كاملاً حتى تجد get_feeders الروافد خارج النطاق المفلتر
                 m = build_basin_map_folium(
-                    df_map if show_lines else df_map_valid,
-                    selected_code=st.session_state.selected_code,
+                    df_map,
+                    selected_code=selected_code_map,
                     radius_km=radius_km,
                     show_lines=show_lines,
                 )
@@ -1113,9 +1339,9 @@ with tabs[2]:
         mc[3].metric("مؤسسات مضيفة",     str(int(df_map[df_map["_cat"].isin(["idadi","thanawi"])].shape[0])))
 
 
-# ──────────────────────────────────────────────────────
-#  TAB 3 — REPORTS (تقارير + تحميل CSV/PDF)
-# ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
+#  TAB 3 — REPORTS
+# ══════════════════════════════════════════════════════
 with tabs[3]:
     st.markdown('<div class="section-hd">📄 التقارير والتنزيلات</div>', unsafe_allow_html=True)
 
@@ -1146,21 +1372,27 @@ with tabs[3]:
 
         st.markdown("---")
 
-        # قائمة الأولويات
-        st.markdown('<div class="section-hd">🚨 أولويات التوسيع أو الإحداث</div>', unsafe_allow_html=True)
+        # ══ FIX 2: أولويات التقرير — توسيع أولاً ══
+        st.markdown('<div class="section-hd">🚨 أولويات المعالجة</div>', unsafe_allow_html=True)
         surch_rep = df_rep[df_rep["_surch"]].sort_values("_taux", ascending=False)
         if surch_rep.empty:
             st.success("✅ لا توجد مؤسسات مكتظة في هذه المديرية")
         else:
             for _, r in surch_rep.iterrows():
-                sugg = get_overflow_suggestions(df_rep, r, 2.0)
-                nm   = r.get(COL["nom_ar"], r.get(COL["nom_fr"],""))
-                if sugg.empty:
-                    note  = "❌ لا يوجد بديل قريب — يُقترح إحداث مؤسسة جديدة"
-                    color = "#ef4444"
+                expand = get_expansion_feasibility(r)
+                sugg   = get_overflow_suggestions(df_rep, r, 2.0)
+                nm     = r.get(COL["nom_ar"], r.get(COL["nom_fr"],""))
+
+                if expand["can_expand"]:
+                    rec   = f"🔧 يُقترح التوسيع الداخلي (+{expand['expansion_capacity']} تلميذ ممكن)"
+                    color = "#f97316"
+                elif not sugg.empty:
+                    rec   = f"🔄 يُقترح التحويل ({len(sugg)} مؤسسة بديلة)"
+                    color = "#3b82f6"
                 else:
-                    note  = f"✅ {len(sugg)} مؤسسة بديلة متاحة"
-                    color = "#10b981"
+                    rec   = "🏗️ يُقترح الإحداث (لا يوجد بديل)"
+                    color = "#ef4444"
+
                 st.markdown(f"""
                 <div class="report-prio-card" style="border-right:3px solid {color}">
                   <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -1171,13 +1403,12 @@ with tabs[3]:
                         {int(r.get('_nc',0))} قسم | {int(r.get('_ns',0))} حجرة
                       </div>
                     </div>
-                    <span style="font-size:12px;color:{color};font-weight:700;white-space:nowrap">{note}</span>
+                    <span style="font-size:12px;color:{color};font-weight:700;white-space:nowrap">{rec}</span>
                   </div>
                 </div>""", unsafe_allow_html=True)
 
         st.markdown("---")
 
-        # أزرار التنزيل
         dl1, dl2 = st.columns(2)
         with dl1:
             st.markdown('<div class="section-hd" style="font-size:12px">⬇ تنزيل CSV</div>', unsafe_allow_html=True)
@@ -1213,9 +1444,9 @@ with tabs[3]:
                 st.caption("`pip install fpdf2`")
 
 
-# ──────────────────────────────────────────────────────
-#  TAB 4 — PRIORITY DASHBOARD (لوحة الأولويات)
-# ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
+#  TAB 4 — PRIORITY DASHBOARD
+# ══════════════════════════════════════════════════════
 with tabs[4]:
     if st.session_state.sel_province:
         df_rep = df[df[COL["province"]]==st.session_state.sel_province]
@@ -1343,9 +1574,9 @@ with tabs[4]:
     st.dataframe(comm_full, use_container_width=True, hide_index=True)
 
 
-# ──────────────────────────────────────────────────────
-#  TAB 5 — ADMIN (للمسؤول فقط)
-# ──────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════
+#  TAB 5 — ADMIN
+# ══════════════════════════════════════════════════════
 if is_admin and len(tabs) > 5:
     with tabs[5]:
         st.markdown('<div class="section-hd">⚙️ لوحة المسؤول</div>', unsafe_allow_html=True)
